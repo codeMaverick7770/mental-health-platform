@@ -1,0 +1,19 @@
+{
+  "name": "mental-health-platform",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -n client,server,va \"npm --prefix client run dev\" \"npm --prefix server run dev\" \"npm --prefix voiceAssistant run dev\"",
+    "client": "npm --prefix client run dev",
+    "server": "npm --prefix server run dev",
+    "va": "npm --prefix voiceAssistant run dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
