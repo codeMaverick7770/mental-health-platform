@@ -2,21 +2,18 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React, { useState } from 'react'
 
 import { SafeAreaView } from 'react-native-safe-area-context'
+import FormInput from '../../components/FormInput';
+import FormButton from '../../components/FormButton';
 
-import FormInput from '../../components/FormInput'
-import FormButton from '../../components/FormButton'
-
-const SignInScreen = ({navigation}) => {
-
+const ForgotPasswordScreen = ({navigation}) => {
     const [email, setEmail] = useState();
-    const [password, setPassword] = useState();
 
-    const signInHandler = () => {};
+    const forgotPasswordHandler = () => {};
 
     return (
         <SafeAreaView style={styles.Container}>
             <View style={styles.card}>
-                <Text style={{ fontSize: 25, fontWeight: 'bold', color: '#333', marginBottom: 10 }}>Sign In</Text>
+                <Text style={styles.HeaderTxt}>Forgot password!</Text>
                 <FormInput
                     iconType='Feather'
                     iconName='user'
@@ -28,30 +25,16 @@ const SignInScreen = ({navigation}) => {
                     autoCapitalize="none"
                     autoCorrect={false}
                 />
-                <FormInput
-                    iconType='EvilIcons'
-                    iconName='lock'
-                    iconSize={25}
-                    placeholderText={'Password'}
-                    labelValue={password}
-                    onChangeText={(password) => setPassword(password)}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry={true}
-                />
                 <FormButton
-                    buttonTitle='Sign In'
-                    onPress={signInHandler}
+                    buttonTitle='Send OTP'
+                    onPress={forgotPasswordHandler}
                 />
-                <TouchableOpacity style={styles.ForgetBtn} onPress={() => { navigation.navigate("ForgotPassword") }}>
-                    <Text style={styles.ForgetBtnTxt} >Forgot Password?</Text>
-                </TouchableOpacity>
-                <View style={styles.SignUpContainer}>
-                    <Text style={styles.SignUpTxt}>
-                        Create a New Account?
+                <View style={styles.SignInContainer}>
+                    <Text style={styles.SignInTxt}>
+                        Already have an Account?
                     </Text>
-                    <TouchableOpacity onPress={() => { navigation.navigate("SignUp") }}>
-                        <Text style={[styles.SignInTxt, { color: '#2e64e5' }]} >Sign Up!</Text>
+                    <TouchableOpacity>
+                        <Text style={[styles.SignInTxt, { color: '#2e64e5' }]} onPress={() => { navigation.navigate("SignIn") }}>Sign In!</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -59,7 +42,7 @@ const SignInScreen = ({navigation}) => {
     )
 }
 
-export default SignInScreen
+export default ForgotPasswordScreen
 
 const styles = StyleSheet.create({
     Container: {
@@ -80,16 +63,14 @@ const styles = StyleSheet.create({
         elevation: 4,
         alignItems: 'center',
     },
-    ForgetBtn: {
-        marginTop: 15,
-        alignItems: 'center',
-    },
-    ForgetBtnTxt: {
-        fontSize: 14,
-        color: '#2e64e5',
+    HeaderTxt: {
+        fontSize: 25,
+        fontWeight: 'bold',
         fontFamily: 'Lato-Regular',
+        color: '#333',
+        marginBottom: 10,
     },
-    SignUpContainer: {
+    SignInContainer: {
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'row',
