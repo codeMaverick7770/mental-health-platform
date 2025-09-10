@@ -1,0 +1,39 @@
+import { StyleSheet, Text, View } from 'react-native'
+import React from 'react'
+
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+import HomeScreen from '../screens/AppScreens/HomeScreen';
+import ProfileScreen from '../screens/AppScreens/ProfileScreen';
+import CommunityScreen from '../screens/AppScreens/CommunityScreen';
+
+import Icon from 'react-native-vector-icons/Ionicons';
+
+const Tab = createBottomTabNavigator();
+
+const MainTabNavigation = () => {
+    return (
+        <Tab.Navigator screenOptions={({ route }) => ({
+            tabBarIcon: ({ focused, color, size }) => {
+                let iconName;
+                if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+                else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
+                else if (route.name === 'Community') iconName = focused ? 'people' : 'people-outline';
+
+                return <Icon name={iconName} size={size} color={color} />;
+            },
+
+            tabBarActiveTintColor: '#4CAF50',
+            tabBarInactiveTintColor: 'gray',
+            headerShown: false,
+        })}>
+            <Tab.Screen name="Home" component={HomeScreen} />
+            <Tab.Screen name="Community" component={CommunityScreen} />
+            <Tab.Screen name="Profile" component={ProfileScreen} />
+        </Tab.Navigator>
+    )
+}
+
+export default MainTabNavigation
+
+const styles = StyleSheet.create({})
