@@ -1,13 +1,13 @@
 import React from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 
-const Card = ({ item, type }) => {
+const MediaCard = ({ item, type }) => {
     return (
         <TouchableOpacity
             style={[
                 styles.card,
                 type === "collection" && styles.collectionCard,
-                type === "podcast" && styles.podcastCard,
+                type === "single" && styles.singleCard,
             ]}
             activeOpacity={0.8}
         >
@@ -17,7 +17,7 @@ const Card = ({ item, type }) => {
                 style={[
                     styles.image,
                     type === "collection" && styles.collectionImage,
-                    type === "podcast" && styles.podcastImage,
+                    type === "single" && styles.singleImage,
                 ]}
             />
 
@@ -25,22 +25,22 @@ const Card = ({ item, type }) => {
                 <Text
                     style={[
                         styles.title,
-                        type === "podcast" && styles.podcastTitle,
+                        type === "single" && styles.singleTitle,
                     ]}
                     numberOfLines={1}
                 >
                     {item.title}
                 </Text>
 
-                {type === "forYou" && <Text style={styles.meta}>{item.length}</Text>}
+                {type === "featured" && <Text style={styles.meta}>{item.length}</Text>}
                 {type === "collection" && <Text style={styles.meta}>{item.size}</Text>}
-                {type === "podcast" && <Text style={styles.meta}>{item.length}</Text>}
+                {type === "single" && <Text style={styles.meta}>{item.length}</Text>}
             </View>
         </TouchableOpacity>
     );
 };
 
-export default Card;
+export default MediaCard;
 
 const styles = StyleSheet.create({
     card: {
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     collectionCard: {
         width: 200, // collections are wider
     },
-    podcastCard: {
+    singleCard: {
         width: 210,
         flexDirection: 'row',
         alignItems:'center',
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     collectionImage: {
         height: 100,
     },
-    podcastImage: {
+    singleImage: {
         width: 75,
         height: 75,
     },
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
         color: "#fff",
         marginBottom: 2,
     },
-    podcastTitle: {
+    singleTitle: {
         textAlign: "center",
         width: "100%",
     },
