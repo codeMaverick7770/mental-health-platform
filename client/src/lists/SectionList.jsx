@@ -1,11 +1,11 @@
 import React, { useCallback } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import Card from "./MediaCard";
+import MediaCard from "../components/MediaCard";
 
-export default function HomeSection({ section }) {
+const SectionList = ({ section }) => {
     const renderCard = useCallback(
-        ({ item }) => <Card item={item} type={section.type} />,
+        ({ item }) => <MediaCard item={item} type={section.type} />,
         [section.type]
     );
 
@@ -30,6 +30,8 @@ export default function HomeSection({ section }) {
         </View>
     );
 }
+
+export default SectionList;
 
 const styles = StyleSheet.create({
     section: { marginBottom: 28 },

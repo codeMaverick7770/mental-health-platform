@@ -7,7 +7,7 @@ import {
     StyleSheet,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import HomeSection from "../components/SectionList";
+import SectionList from "./SectionList";
 
 const arr = [
     {
@@ -51,7 +51,7 @@ const arr = [
     {
         _id: 3,
         listName: "Podcasts",
-        type: "podcast", // NEW
+        type: "single", // NEW
         data: [
             {
                 _id: 1,
@@ -74,7 +74,7 @@ const HomeList = () => {
         <FlatList
             data={arr}
             keyExtractor={(item) => String(item._id)}
-            renderItem={({ item }) => <HomeSection section={item} />}
+            renderItem={({ item }) => <SectionList section={item} />}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
                 <View style={styles.header}>
