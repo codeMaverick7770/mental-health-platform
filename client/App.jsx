@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer } from '@react-navigation/native';
 import { enableScreens } from 'react-native-screens'
 
-import StackNavigation from './src/navigations/StackNavigation'
+import InitialStackNavigation from './src/navigations/InitialStackNavigation'
 import MainTabNavigation from './src/navigations/MainTabNavigation'
 
 enableScreens();
@@ -16,7 +16,7 @@ const App = () => {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
                 <NavigationContainer>
-                    <MainTabNavigation />
+                    <InitialStackNavigation />
                 </NavigationContainer>
             </SafeAreaProvider>
         </GestureHandlerRootView>
