@@ -1,62 +1,188 @@
-import nlp from 'compromise';
-import Sentiment from 'sentiment';
-import { generateCounsellorReply } from './llm.js';
-const sentiment = new Sentiment();
+import { SmartCounselor } from './smart-counselor.js';
+import { AdminReporting } from './admin-reporting.js';
 
-const supportiveOpeners = [
-  "I'm here with you. Tell me what's on your mind.",
-  "Thank you for sharing. What feels most heavy right now?",
-  "You’re not alone. Would you like to talk about what happened today?"
-];
 
-const copingSuggestions = [
-  "Try the 4-7-8 breathing: inhale 4, hold 7, exhale 8.",
-  "A brief body scan can help—notice feet to head, release tension.",
-  "Would making a small plan for the next hour feel helpful?",
-  "Drinking water and stepping outside for a minute can reset your mood.",
-  "Write one worry, then one small action you can take this week."
-];
+// Enhanced counseling session management
+const activeSessions = new Map();
+const adminReporting = new AdminReporting();
+const smartCounselor = new SmartCounselor();
 
-function extractTopics(text) {
-  const doc = nlp(text || '');
-  const nouns = doc.nouns().out('array');
-  const topics = Array.from(new Set(nouns)).slice(0, 5);
-  return topics;
+export async function createResponse(userText, { locale = 'en-IN', risk = {}, priorTurns = [], sessionId = null } = {}) {
+  const clean = (userText || '').trim();
+  
+  // Initialize or get session data
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+  
+  let session = activeSessions.get(sessionId);
+  if (!session) {
+    session = {
+      sessionId,
+      startedAt: new Date().toISOString(),
+      turns: priorTurns || [],
+      riskFlags: [],
+      userProfile: {
+        concerns: [],
+        copingStrategies: [],
+        supportSystems: []
+      }
+    };
+    activeSessions.set(sessionId, session);
+  }
+
+  // Add user turn to session
+  session.turns.push({
+    role: 'user',
+    text: clean,
+    timestamp: new Date().toISOString(),
+    risk: risk
+  });
+
+  // Handle empty input
+  if (!clean) {
+    const response = "I'm here to listen. Please share what's on your mind.";
+    session.turns.push({ role: 'assistant', text: response, timestamp: new Date().toISOString() });
+    return { reply: response, risk: { level: 'low' }, sessionId, session };
+  }
+
+  try {
+    // Use smart counselor to generate response
+    const counselorResponse = await smartCounselor.generateResponse(clean, sessionId, {
+      locale,
+      risk,
+      priorTurns,
+      session
+    });
+
+    // Add assistant turn to session
+    session.turns.push({
+      role: 'assistant',
+      text: counselorResponse.reply,
+      timestamp: new Date().toISOString(),
+      analysis: counselorResponse.analysis
+    });
+
+    // Update risk level based on counselor analysis
+    const riskLevel = counselorResponse.analysis?.urgencyLevel === 'crisis' ? 'crisis' :
+                     counselorResponse.analysis?.urgencyLevel === 'high' ? 'high' :
+                     counselorResponse.analysis?.urgencyLevel === 'medium' ? 'medium' : 'low';
+
+    // Build action plan for client app to act on
+    const actionPlan = buildActionPlan(riskLevel, locale);
+
+    // Update session risk flags
+    if (counselorResponse.analysis?.riskIndicators) {
+      counselorResponse.analysis.riskIndicators.forEach(indicator => {
+        if (!session.riskFlags.includes(indicator)) {
+          session.riskFlags.push(indicator);
+        }
+      });
+    }
+
+    // Update user profile
+    if (counselorResponse.analysis?.mainConcerns) {
+      counselorResponse.analysis.mainConcerns.forEach(concern => {
+        if (!session.userProfile.concerns.includes(concern)) {
+          session.userProfile.concerns.push(concern);
+        }
+      });
+    }
+
+    if (counselorResponse.analysis?.copingMechanisms) {
+      counselorResponse.analysis.copingMechanisms.forEach(strategy => {
+        if (!session.userProfile.copingStrategies.includes(strategy)) {
+          session.userProfile.copingStrategies.push(strategy);
+        }
+      });
+    }
+
+    return { 
+      reply: counselorResponse.reply, 
+      risk: { level: riskLevel }, 
+      sessionId,
+      analysis: counselorResponse.analysis,
+      actionPlan,
+      session
+    };
+  } catch (error) {
+    console.error('Error in smart counselor:', error);
+    
+    // Fallback to basic response
+    const fallbackResponse = "I'm here to listen and support you. Can you tell me more about what you're experiencing?";
+    session.turns.push({ role: 'assistant', text: fallbackResponse, timestamp: new Date().toISOString() });
+    
+    return { 
+      reply: fallbackResponse, 
+      risk: { level: 'low' }, 
+      sessionId,
+      session
+    };
+  }
 }
 
-export async function createResponse(userText, { locale = 'en-IN', risk = {}, priorTurns = [] } = {}) {
-  const clean = (userText || '').trim();
-  if (!clean) {
-    return supportiveOpeners[Math.floor(Math.random() * supportiveOpeners.length)];
+// Risk-based action planner for client integration
+function buildActionPlan(riskLevel, locale) {
+  const lowResources = [
+    { type: 'exercise', title: '4-7-8 breathing (1 minute)', code: 'breath_478' },
+    { type: 'exercise', title: '5-4-3-2-1 grounding', code: 'ground_54321' },
+    { type: 'guide', title: 'CBT reframing prompt', code: 'cbt_reframe' },
+    { type: 'link', title: 'Sleep hygiene tips', url: 'https://www.nhs.uk/every-mind-matters/mental-wellbeing-tips/sleep/' }
+  ];
+
+  if (riskLevel === 'high' || riskLevel === 'crisis') {
+    return {
+      level: riskLevel,
+      sos: true,
+      suggestHelplines: true,
+      requestBookingConsent: true,
+      peerOffer: false,
+      resources: lowResources.slice(0, 2)
+    };
   }
-  if (risk.flag) {
-    if (risk.level === 'high') {
-      return "I’m concerned about your safety. If you’re in immediate danger, please call your local emergency number now. I can also share helplines and connect you to your campus counsellor. Would you like that?";
-    }
-    if (risk.level === 'medium') {
-      return "Thank you for telling me. Your feelings matter. I can share coping steps and counsellor options. Would you like breathing guidance or to book a time with the counsellor?";
-    }
+  if (riskLevel === 'medium') {
+    return {
+      level: 'medium',
+      screeningPrompt: 'Would you like to do a 1-minute check with a few questions (like PHQ-9/GAD-7 style) to understand how intense this feels?',
+      requestPeerConsent: true,
+      resources: lowResources
+    };
   }
-  // Try LLM counsellor persona if enabled
-  if (process.env.USE_LLM === '1') {
-    const llm = await generateCounsellorReply({ userText: clean, turns: priorTurns, locale, risk });
-    if (llm) return llm;
+  return {
+    level: 'low',
+    cbtSuggestion: 'Try a tiny CBT step: write the thought → find evidence for/against → reframe into a kinder alternative.',
+    resources: lowResources
+  };
+}
+
+// Export session data for admin reporting
+export function getSessionData(sessionId) {
+  const session = activeSessions.get(sessionId);
+  if (!session) return null;
+  
+  // Get additional data from smart counselor
+  const counselorData = smartCounselor.getSessionData(sessionId);
+  
+  return {
+    ...session,
+    counselorContext: counselorData?.context,
+    conversation: counselorData?.conversation || session.turns,
+    duration: counselorData?.duration || 0,
+    turnCount: counselorData?.turnCount || session.turns.length
+  };
+}
+
+// Generate admin report for session
+export async function generateAdminReport(sessionId) {
+  const session = activeSessions.get(sessionId);
+  if (!session) return null;
+  
+  try {
+    return await adminReporting.generateSessionReport(sessionId, session);
+  } catch (error) {
+    console.error('Error generating admin report:', error);
+    return adminReporting.generateBasicSessionReport(sessionId, session);
   }
-  const s = sentiment.analyze(clean);
-  const topics = extractTopics(clean);
-  let response = '';
-  if (s.score <= -2) {
-    response = "That sounds really tough. I’m glad you shared it with me. ";
-  } else if (s.score < 1) {
-    response = "I hear you. Thank you for opening up. ";
-  } else {
-    response = "I can sense some strengths in how you’re thinking about this. ";
-  }
-  if (topics.length) {
-    response += `When you think about ${topics[0]}, what feels most challenging? `;
-  }
-  response += copingSuggestions[Math.floor(Math.random() * copingSuggestions.length)];
-  return response;
 }
 
 
