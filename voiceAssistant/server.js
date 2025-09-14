@@ -2,74 +2,54 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import { createResponse } from './src/dialogue.js';
-import { pingOllama } from './src/llm.js';
-import { detectRisk } from './src/safety.js';
-import { generateReport } from './src/report.js';
+import { startSession, postTurn, endSession } from './src/controllers/sessionController.js';
+import { dashboard, listSessions, getSession, analytics, alerts } from './src/controllers/adminController.js';
+import { getCounselorReport, listCounselorReports } from './src/controllers/counselorController.js';
+import { speak as ttsSpeak } from './src/controllers/ttsController.js';
+import { listResources } from './src/controllers/resourcesController.js';
+import { booking as hookBooking, peerSupport as hookPeer } from './src/controllers/hooksController.js';
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-const sessions = new Map();
+// Controllers manage state and logic; server defines routes only
 
-app.post('/api/session/start', (req, res) => {
-  const { locale = 'en-IN' } = req.body || {};
-  const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  sessions.set(sessionId, {
-    id: sessionId,
-    locale,
-    startedAt: new Date().toISOString(),
-    turns: [],
-    riskFlags: [],
-    meta: {}
-  });
-  res.json({ sessionId });
-});
+app.post('/api/session/start', startSession);
 
-app.post('/api/session/turn', async (req, res) => {
-  const { sessionId, userText } = req.body || {};
-  if (!sessionId || !sessions.has(sessionId)) {
-    return res.status(400).json({ error: 'Invalid sessionId' });
-  }
-  const session = sessions.get(sessionId);
-  const risk = detectRisk(userText);
-  if (risk.flag) {
-    session.riskFlags.push(risk);
-  }
-  const reply = await createResponse(userText, { locale: session.locale, risk, priorTurns: session.turns });
-  session.turns.push({ role: 'user', text: userText });
-  session.turns.push({ role: 'assistant', text: reply });
-  res.json({ reply, risk });
-});
+app.post('/api/session/turn', postTurn);
 
-app.post('/api/session/end', (req, res) => {
-  const { sessionId } = req.body || {};
-  if (!sessionId || !sessions.has(sessionId)) {
-    return res.status(400).json({ error: 'Invalid sessionId' });
-  }
-  const session = sessions.get(sessionId);
-  session.endedAt = new Date().toISOString();
-  const report = generateReport(session);
-  res.json({ report });
-});
+app.post('/api/session/end', endSession);
 
-app.get('/api/llm/health', async (req, res) => {
-  try {
-    if (process.env.USE_LLM !== '1') return res.json({ useLLM: false, reason: 'USE_LLM not set' });
-    const info = await pingOllama();
-    res.json({ useLLM: true, ...info });
-  } catch (e) {
-    res.status(500).json({ useLLM: true, error: e?.message || String(e) });
-  }
-});
+// LLM endpoints removed while running in rule-based mode
 
-app.post('/api/llm/toggle', (req, res) => {
-  const { on } = req.body || {};
-  process.env.USE_LLM = on ? '1' : '0';
-  res.json({ useLLM: process.env.USE_LLM === '1' });
-});
+// Admin Dashboard API Endpoints
+app.get('/api/admin/dashboard', dashboard);
+
+app.get('/api/admin/sessions', listSessions);
+
+app.get('/api/admin/session/:sessionId', getSession);
+
+app.get('/api/admin/analytics', analytics);
+
+app.get('/api/admin/alerts', alerts);
+
+// Counselor Report API Endpoints
+app.get('/api/counselor/report/:sessionId', getCounselorReport);
+
+// Get all counselor reports
+app.get('/api/counselor/reports', listCounselorReports);
+
+// TTS proxy (emotion-aware Indian female voice)
+app.post('/api/tts/speak', ttsSpeak);
+
+// Psychoeducational resources (static MVP)
+app.get('/api/resources', listResources);
+
+// External integration hooks
+app.post('/api/hooks/booking', hookBooking);
+app.post('/api/hooks/peer-support', hookPeer);
 
 // TTS fallback endpoint removed due to Node TS module compatibility issues.
 
