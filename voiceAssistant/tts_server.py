@@ -35,15 +35,21 @@ def detect_lang(segment: str) -> str:
         # Arabic script ranges (Urdu)
         if ('\u0600' <= ch <= '\u06FF') or ('\u0750' <= ch <= '\u077F') or ('\u08A0' <= ch <= '\u08FF'):
             return 'ur'
-    # Token heuristics for Latin transliterations
+    # Token heuristics for Latin transliterations (approx for Hinglish/Urdu/Punjabi/Dogri/Kashmiri)
     tokens = {t.lower() for t in segment.split()}
     hinglish_tokens = {"nahi","ha","haan","achha","theek","vaise","kuch","zyada","kam","kaise","kyun","bahut","thoda","sach","galat","dost","parivaar","padhai","imtihan","tension"}
     roman_urdu_tokens = {"nahi","haan","acha","theek","kaise","kyun","zyada","kam","dost","parivaar","imtihan","khushi","gham","udaas"}
     roman_punjabi_tokens = {"haan","nahi","theek","ki","kyon","kiven","dost","parivaar","padhai","dil","udaas"}
+    roman_dogri_tokens = {"thare","ki","ke","karna","bada","chhota","kitho","ithe","teth","tension","udaas"}
+    roman_kashmiri_tokens = {"mech","yiman","kyazi","chu","karan","beyi","zyaad","kam","dil","udaas"}
     if tokens & roman_urdu_tokens:
         return 'ur'
     if tokens & roman_punjabi_tokens:
         return 'pa'
+    if tokens & roman_kashmiri_tokens:
+        return 'ur'  # map Kashmiri to Urdu voices (closest available)
+    if tokens & roman_dogri_tokens:
+        return 'hi'  # map Dogri to Hindi voices (closest available)
     if tokens & hinglish_tokens:
         return 'hi'
     return 'en'
@@ -198,9 +204,38 @@ async def speak(payload: dict = Body(...)):
             print(f"Azure TTS failed, falling back to edge-tts: {e}")
             # Fall through to edge-tts fallback
     
-    # Fallback to edge-tts
+    # Fallback to edge-tts (pick closest voice by detected language)
     try:
-        communicate = edge_tts.Communicate(text, en_voice)
+        lang = detect_lang(text)
+        if lang == 'hi':
+            fallback_voice = hi_voice
+            target_locale = 'hi-IN'
+        elif lang == 'ur':
+            fallback_voice = ur_voice or DEFAULT_UR_VOICE
+            target_locale = 'ur-PK'
+        elif lang == 'pa':
+            fallback_voice = pa_voice or DEFAULT_PA_VOICE
+            target_locale = 'pa-IN'
+        else:
+            fallback_voice = en_voice
+            target_locale = 'en-IN'
+
+        # Verify the voice exists in edge-tts; if not, pick any voice for the target locale,
+        # and if still missing (e.g., Punjabi not available), fall back to Hindi.
+        try:
+            voices = await edge_tts.list_voices()
+            shortnames = {v.get('ShortName') for v in voices}
+            if fallback_voice not in shortnames:
+                # pick first voice matching locale
+                alt = next((v.get('ShortName') for v in voices if v.get('Locale') == target_locale), None)
+                if not alt and target_locale == 'pa-IN':
+                    # Edge sometimes lacks Punjabi voices; fall back to Hindi
+                    alt = next((v.get('ShortName') for v in voices if v.get('Locale') == 'hi-IN'), None)
+                fallback_voice = alt or fallback_voice
+        except Exception:
+            pass
+
+        communicate = edge_tts.Communicate(text, fallback_voice)
         audio_data = b""
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
@@ -209,7 +244,7 @@ async def speak(payload: dict = Body(...)):
         headers = {
             "Content-Type": "audio/mpeg",
             "Cache-Control": "no-store",
-            "X-Voice": en_voice,
+            "X-Voice": fallback_voice,
         }
         return StreamingResponse(iter([audio_data]), headers=headers)
     except Exception as e:
