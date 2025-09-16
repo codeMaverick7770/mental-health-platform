@@ -89,7 +89,7 @@ export async function createResponse(userText, { locale = 'en-IN', risk = {}, pr
       });
     }
 
-    if (counselorResponse.analysis?.copingMechanisms) {
+    if (Array.isArray(counselorResponse.analysis?.copingMechanisms)) {
       counselorResponse.analysis.copingMechanisms.forEach(strategy => {
         if (!session.userProfile.copingStrategies.includes(strategy)) {
           session.userProfile.copingStrategies.push(strategy);

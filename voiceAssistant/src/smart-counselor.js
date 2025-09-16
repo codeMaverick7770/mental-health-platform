@@ -22,13 +22,14 @@ export class SmartCounselor {
     try {
       // Get or create session context
       const sessionContext = this.getSessionContext(sessionId);
+      const locale = this.normalizeLocale(context.locale || 'en-IN');
       
       // Update conversation history
       this.updateConversationHistory(sessionId, userText, 'user');
       
       // FAST_MODE: single LLM call path for lower latency
       if (process.env.FAST_MODE === '1') {
-        const fast = await this.generateFastResponse(userText, sessionContext);
+        const fast = await this.generateFastResponse(userText, sessionContext, locale);
         // Update session context with lightweight analysis
         this.updateSessionContext(sessionId, fast.analysis, fast.reply);
         // Update conversation history
@@ -37,8 +38,8 @@ export class SmartCounselor {
       }
 
       // Standard path: analyze then respond
-      const analysis = await this.analyzeUserMessage(userText, sessionContext, context.locale || 'en-IN');
-      const response = await this.generateContextualResponse(userText, sessionContext, analysis, context.locale || 'en-IN');
+      const analysis = await this.analyzeUserMessage(userText, sessionContext, locale);
+      const response = await this.generateContextualResponse(userText, sessionContext, analysis, locale);
       
       // Update session context with new information
       this.updateSessionContext(sessionId, analysis, response);
@@ -58,9 +59,10 @@ export class SmartCounselor {
   }
 
   // Low-latency single-call response with lightweight analysis
-  async generateFastResponse(userText, sessionContext) {
+  async generateFastResponse(userText, sessionContext, locale) {
     const history = this.getConversationHistory(sessionContext.sessionId).slice(-4).map(t => `${t.role}: ${t.text}`).join('\n');
-    const prompt = `You are ${this.persona.name}, an empathetic Indian college counselor. Keep replies concise (2-3 sentences), warm, non-judgmental, end with a soft check-in question.
+    const languageName = this.languageNameFor(locale);
+    const prompt = `You are ${this.persona.name}, an empathetic Indian college counselor. Keep replies concise (2-3 sentences), warm, non-judgmental, end with a soft check-in question. Reply strictly in ${languageName}. If the user mixes languages, prefer ${languageName} unless they clearly request another.
 
 Conversation (recent):\n${history}
 
@@ -68,7 +70,7 @@ Student: ${userText}
 Assistant:`;
 
     try {
-      const raw = await this.callLLM(prompt);
+      const raw = await this.callLLM(prompt, locale);
       const reply = this.cleanResponse(raw);
       // Use keyword-based fallback analysis (fast)
       const analysis = this.generateFallbackAnalysis(userText);
@@ -85,7 +87,7 @@ Assistant:`;
     const analysisPrompt = this.buildAnalysisPrompt(userText, sessionContext, locale);
     
     try {
-      const analysis = await this.callLLM(analysisPrompt);
+      const analysis = await this.callLLM(analysisPrompt, locale);
       return this.parseAnalysis(analysis);
     } catch (error) {
       console.error('Error analyzing user message:', error);
@@ -98,7 +100,7 @@ Assistant:`;
     const responsePrompt = this.buildResponsePrompt(userText, sessionContext, analysis, locale);
     
     try {
-      const response = await this.callLLM(responsePrompt);
+      const response = await this.callLLM(responsePrompt, locale);
       return this.cleanResponse(response);
     } catch (error) {
       console.error('Error generating response:', error);
@@ -181,7 +183,7 @@ ANALYSIS:
 - Response Approach: ${analysis.responseApproach}
 
 GUIDELINES:
-1. Keep replies very brief: 2–3 sentences total.
+1. Keep replies very brief: 1-2 sentences total.
 2. Be empathetic and non-judgmental.
 3. Avoid clinical labels or diagnoses.
 4. Tailor content to the urgency level:
@@ -202,10 +204,12 @@ RESPONSE:`;
   }
 
   // Call LLM with prompt via Groq chat
-  async callLLM(prompt) {
+  async callLLM(prompt, locale = 'en-IN') {
     try {
+      const languageName = this.languageNameFor(locale);
       const system = `You are Asha, an empathetic Indian college counselor.
-Keep replies 2–3 sentences. First reflect briefly, then either: (a) suggest one CBT/mindfulness/sleep-hygiene step for low urgency; (b) ask one severity gauge and consent for anonymous peer support for medium urgency; (c) prioritize safety and advise SOS/helpline for high urgency and ask consent for immediate counselor booking. End with a soft check-in. Avoid clinical labels and medical advice.`;
+Keep replies 2–3 sentences. First reflect briefly, then either: (a) suggest one CBT/mindfulness/sleep-hygiene step for low urgency; (b) ask one severity gauge and consent for anonymous peer support for medium urgency; (c) prioritize safety and advise SOS/helpline for high urgency and ask consent for immediate counselor booking. End with a soft check-in. Avoid clinical labels and medical advice.
+Always reply in ${languageName}. If locale is a regional language not natively supported, use the closest widely-understood script and vocabulary (${languageName}).`;
       const out = await groqChat({
         system,
         messages: [{ role: 'user', content: prompt }],
@@ -219,10 +223,38 @@ Keep replies 2–3 sentences. First reflect briefly, then either: (a) suggest on
     }
   }
 
+  // Locale helpers
+  normalizeLocale(locale) {
+    const l = String(locale || '').toLowerCase();
+    if (l.startsWith('doi')) return 'hi-IN'; // Dogri -> Hindi
+    if (l.startsWith('ks')) return 'ur-PK';  // Kashmiri -> Urdu
+    if (l === 'ur-in') return 'ur-PK';
+    return locale;
+  }
+
+  languageNameFor(locale) {
+    const m = String(locale || '').toLowerCase();
+    if (m.startsWith('hi')) return 'Hindi';
+    if (m.startsWith('ur')) return 'Urdu';
+    if (m.startsWith('pa')) return 'Punjabi';
+    if (m.startsWith('en')) return 'English (India)';
+    return 'the user\'s language';
+  }
+
   // Parse analysis response
   parseAnalysis(response) {
     try {
-      const parsed = JSON.parse(response);
+      // Sanitize common LLM outputs: remove code fences, labels, stray text
+      let text = String(response || '').trim();
+      // Remove markdown code fences like ```json ... ``` or ``` ... ```
+      text = text.replace(/^```[a-zA-Z]*\n([\s\S]*?)\n```\s*$/m, '$1').trim();
+      // If there is any leading junk before first { and trailing after last }, slice it
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        text = text.slice(firstBrace, lastBrace + 1);
+      }
+      const parsed = JSON.parse(text);
       return {
         emotionalState: parsed.emotionalState || 'neutral',
         urgencyLevel: parsed.urgencyLevel || 'low',
@@ -236,7 +268,7 @@ Keep replies 2–3 sentences. First reflect briefly, then either: (a) suggest on
       };
     } catch (error) {
       console.error('Error parsing analysis:', error);
-      return this.generateFallbackAnalysis();
+      return this.generateFallbackAnalysis('');
     }
   }
 
@@ -345,8 +377,7 @@ Keep replies 2–3 sentences. First reflect briefly, then either: (a) suggest on
   generateFallbackAnalysis(userText) {
     const crisisKeywords = ['suicide', 'kill myself', 'end my life', 'self harm'];
     const riskKeywords = ['depressed', 'hopeless', 'anxious', 'worried'];
-    
-    const text = userText.toLowerCase();
+    const text = String(userText || '').toLowerCase();
     const hasCrisis = crisisKeywords.some(keyword => text.includes(keyword));
     const hasRisk = riskKeywords.some(keyword => text.includes(keyword));
     
