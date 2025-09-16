@@ -1,8 +1,33 @@
-import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native'
-import React from 'react'
+import { StyleSheet, Text, View, TouchableOpacity, Image, Animated } from 'react-native'
+import React, { useRef, useState } from 'react'
 import Ionicons from 'react-native-vector-icons/Ionicons'
+import Video from 'react-native-video'
 
 const MusicPlayerScreen = () => {
+    const [isPlaying, setIsPlaying] = useState(true);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    const handleProgress = (data) => {
+        setCurrentTime(data.currentTime);
+    };
+    const handleLoad = (data) => {
+        setDuration(data.duration);
+    };
+    const handlePlayPause = () => {
+        setIsPlaying(!isPlaying);
+    };
+
+    // Format time mm:ss
+    const formatTime = (sec) => {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    // Calculate progress bar width
+    const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -10,11 +35,19 @@ const MusicPlayerScreen = () => {
                 <Ionicons name="musical-notes-outline" size={28} color="#4CAF50" />
             </View>
             <View style={styles.card}>
-                <Image
-                    source={{ uri: 'https://images.pexels.com/photos/164936/pexels-photo-164936.jpeg' }}
-                    style={styles.albumArt}
+                <Video
+                    style={styles.videoPlayer}
+                    source={require('../../assets/Ram_Darshan.mp4')}
+                    controls={false}
+                    paused={!isPlaying}
+                    volume={1.0}
+                    muted={false}
+                    onProgress={handleProgress}
+                    onLoad={handleLoad}
+                    ignoreSilentSwitch="ignore"
+                    resizeMode="contain"
                 />
-                <Text style={styles.songTitle}>Song Title</Text>
+                <Text style={styles.songTitle}>Ram Darshan</Text>
                 <Text style={styles.artistName}>Artist Name</Text>
             </View>
             <View style={styles.footer}>
@@ -22,8 +55,8 @@ const MusicPlayerScreen = () => {
                     <TouchableOpacity>
                         <Ionicons name="play-back" size={36} color="#4CAF50" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.playButton}>
-                        <Ionicons name="play-circle" size={60} color="#61e066ff" />
+                    <TouchableOpacity style={styles.playButton} onPress={handlePlayPause}>
+                        <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={60} color="#61e066ff" />
                     </TouchableOpacity>
                     <TouchableOpacity>
                         <Ionicons name="play-forward" size={36} color="#4CAF50" />
@@ -31,11 +64,11 @@ const MusicPlayerScreen = () => {
                 </View>
                 <View style={styles.progressBarWrapper}>
                     <View style={styles.progressBarBg}>
-                        <View style={styles.progressBarFill} />
+                            <View style={[styles.progressBarFill, { width: `${Math.max(progressPercent, 0)}%` }]} />
                     </View>
                     <View style={styles.timeRow}>
-                        <Text style={styles.time}>1:12</Text>
-                        <Text style={styles.time}>3:45</Text>
+                            <Text style={styles.time}>{duration > 0 ? formatTime(currentTime) : '0:00'}</Text>
+                            <Text style={styles.time}>{duration > 0 ? formatTime(duration) : '0:00'}</Text>
                     </View>
                 </View>
             </View>
@@ -84,10 +117,11 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 4,
     },
-    albumArt: {
-        width: 220,
-        height: 220,
-        borderRadius: 16,
+    videoPlayer: {
+        width: 320,
+        height: 180,
+        backgroundColor: '#000',
+        borderRadius: 12,
         marginBottom: 18,
     },
     songTitle: {

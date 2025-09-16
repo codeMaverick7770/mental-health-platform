@@ -22,7 +22,7 @@ const SignUpScreen = ({ navigation }) => {
                     iconType='Feather'
                     iconName='user'
                     iconSize={17}
-                    placeholderText={'Full Name'}
+                    placeholderText={'University Name'}
                     labelValue={name}
                     onChangeText={(name) => setName(name)}
                     autoCorrect={false}

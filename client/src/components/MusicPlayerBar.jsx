@@ -1,10 +1,15 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const {width} = Dimensions.get('window');
 
 const MusicPlayerBar = ({ onPress }) => {
+    const insets = useSafeAreaInsets();
+
+    const baseHeight = 32;
+    const tabBarHeight = baseHeight + insets.bottom;
     return (
         <View 
             style={[
@@ -15,6 +20,7 @@ const MusicPlayerBar = ({ onPress }) => {
                     shadowOpacity: 0.2,
                     shadowRadius: 4,
                     shadowOffset: { width: 0, height: -2 },
+                    marginBottom: tabBarHeight,
                 },
             ]}
         >
@@ -45,7 +51,6 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 16,
         backgroundColor: '#1a1a1a',
-        marginBottom: 60,
         paddingHorizontal: 16,
         paddingVertical: 12,
         flexDirection: 'row',
