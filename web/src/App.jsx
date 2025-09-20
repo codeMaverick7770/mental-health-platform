@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import CounselorDashboard from './pages/CounselorDashboard.jsx'
+import CounselorSessionPage from './pages/CounselorSessionPage.jsx'
 import VoiceTester from './pages/VoiceTester.jsx'
 export default function App(){
   return (
@@ -12,6 +13,7 @@ export default function App(){
             <div className="flex gap-2">
             <NavLink to="/admin" className={({ isActive }) => `font-semibold ${isActive ? 'text-teal-600' : 'text-gray-900 hover:text-teal-600'}`}>Admin</NavLink>
             <NavLink to="/counselor" className={({ isActive }) => `font-semibold ${isActive ? 'text-teal-600' : 'text-gray-900 hover:text-teal-600'}`}>Counselor</NavLink>
+            <NavLink to="/counselor-sessions" className={({ isActive }) => `font-semibold ${isActive ? 'text-teal-600' : 'text-gray-900 hover:text-teal-600'}`}>My Sessions</NavLink>
             <NavLink to="/voice" className={({ isActive }) => `font-semibold ${isActive ? 'text-teal-600' : 'text-gray-900 hover:text-teal-600'}`}>Voice Tester</NavLink>
             </div>
           </nav>
@@ -21,6 +23,7 @@ export default function App(){
             <Route path="/" element={<Navigate to="/admin" replace/>}/>
             <Route path="/admin" element={<AdminDashboard/>}/>
             <Route path="/counselor" element={<CounselorDashboard/>}/>
+            <Route path="/counselor-sessions" element={<CounselorSessionPage/>}/>
             <Route path="/voice" element={<VoiceTester/>}/>
             <Route path="*" element={<Navigate to="/admin" replace/>}/>
           </Routes>

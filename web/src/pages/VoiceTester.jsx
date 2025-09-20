@@ -81,6 +81,7 @@ export default function VoiceTester(){
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
+      
       if (!ttsResp.ok) throw new Error('tts proxy failed')
       const buf = await ttsResp.arrayBuffer()
       const ctx = new (window.AudioContext || window.webkitAudioContext)()

@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import bookingRouter from "../routes/bookingRoutes.js";
-import counsellingRouter from "../routes/counsellorRoutes.js";  
+
+import adminBookingRouter from "../routes/adminBookingRoutes.js";
+import sessionRouter from "../routes/sessionRoutes.js";
 
 
 const app = express();
@@ -12,8 +13,8 @@ app.use(express.json());
 
 
 // Routes
-app.use("/api", bookingRouter); 
-app.use("/api", counsellingRouter);
+app.use("/api", adminBookingRouter);
+app.use("/api", sessionRouter);
 
 // Health check endpoint
 app.get("/", (req, res) => {
