@@ -1,4 +1,4 @@
-import Media from "../models/Media.js";
+import Media from "../models/media.model.js";
 
 // GET all media (with filters)
 export const getAllMedia = async (req, res) => {

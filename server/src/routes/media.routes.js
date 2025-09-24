@@ -6,7 +6,7 @@ import {
   updateMedia,
   deleteMedia
 } from "../controllers/media.controller.js";
-import { authMiddleware } from "../utils/auth.utills.js";
+import { authMiddleware } from "../utils/auth.utils.js";
 import { adminMiddleware } from "../utils/admin.utils.js";
 
 const router = express.Router();

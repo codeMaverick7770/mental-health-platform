@@ -1,5 +1,5 @@
-import User from "../models/User.js";
-import Media from "../models/Media.js";
+import User from "../models/user.model.js";
+import Media from "../models/media.model.js";
 
 // ================= PROFILE =================
 export const getMyProfile = async (req, res) => {

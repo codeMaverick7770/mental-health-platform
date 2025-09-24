@@ -9,7 +9,7 @@ import {
   getHistory,
   clearHistory
 } from "../controllers/user.controller.js";
-import { authMiddleware } from "../utils/auth.utills.js";
+import { authMiddleware } from "../utils/auth.utils.js";
 
 const router = express.Router();
 

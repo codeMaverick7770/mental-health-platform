@@ -13,6 +13,12 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
     },
+    domain: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
     password: {
       type: String,
       required: true,
@@ -29,7 +35,16 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
-    // ✅ Favorites (just store media IDs)
+    refreshToken: {
+      type: String,
+      default: null,
+    },
+
+    college: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "College",
+    },
+
     favorites: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -37,21 +52,10 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // ✅ History (store media ID + timestamp + progress)
     history: [
       {
-        media: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Media",
-        },
-        playedAt: {
-          type: Date,
-          default: Date.now,
-        },
-        progress: {
-          type: Number, // seconds or percentage
-          default: 0,
-        },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Media",
       },
     ],
   },

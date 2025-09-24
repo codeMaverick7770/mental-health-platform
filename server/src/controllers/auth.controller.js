@@ -1,35 +1,72 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import College from "../models/college.model.js";
 import Otp from "../models/otp.model.js";
 import { sendOtpEmail } from "../utils/email.utils.js";
+import dotenv from "dotenv";
+dotenv.config();
 
+console.log("Environment:", process.env.JWT_SECRET);
+
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" } // short-lived
+  );
+};
+
+const generateRefreshToken = (user) => {
+  return jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: "7d" } // long-lived
+  );
+};
 // =================== REGISTER ===================
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // 1. Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: "Email already exists" });
+    // ✅ Extract domain
+    const domain = email.split("@")[1].toLowerCase();
+
+    // ✅ Check if college exists with that domain
+    const college = await College.findOne({ domain });
+    if (!college) {
+      return res.status(400).json({
+        success: false,
+        message: "Your college is not registered in our system",
+      });
     }
 
-    // 2. Hash password
+    // ✅ Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already exists",
+      });
+    }
+
+    // ✅ Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 3. Create user with isVerified = false
+    // ✅ Create new user with domain + college ref
     const newUser = new User({
       name,
       email,
+      domain,
       password: hashedPassword,
       role,
-      isVerified: false
+      college: college._id,
+      isVerified: false,
     });
     await newUser.save();
 
-    // 4. Generate OTP and upsert (reset expiry if exists)
+    // ✅ Generate OTP for email verification
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpRecord = await Otp.findOneAndUpdate(
       { email, purpose: "register" },
@@ -37,20 +74,22 @@ export const register = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // 5. Send OTP
+    // ✅ Send OTP email
     await sendOtpEmail(email, otpRecord.otp);
 
     res.status(201).json({
       success: true,
-      message: "User registered. Please verify with OTP sent to your email."
+      message: "User registered. Please verify with OTP sent to your email.",
     });
   } catch (error) {
     console.error("Register Error:", error);
-    res.status(500).json({ success: false, message: "Server error, please try again" });
+    res.status(500).json({
+      success: false,
+      message: "Server error, please try again",
+    });
   }
 };
 
-// =================== VERIFY EMAIL VIA OTP ===================
 export const verifyEmail = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -67,8 +106,6 @@ export const verifyEmail = async (req, res) => {
 
     user.isVerified = true;
     await user.save();
-
-    // remove otp
     await Otp.deleteOne({ _id: otpRecord._id });
 
     res.status(200).json({ success: true, message: "Email verified successfully" });
@@ -78,7 +115,6 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-// =================== LOGIN ===================
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -97,15 +133,26 @@ export const login = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "7d"
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // save refresh token in DB
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    // set refresh token in HttpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     });
 
     res.status(200).json({
       success: true,
       message: "Login successful",
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
-      token
+      accessToken,
     });
   } catch (error) {
     console.error("Login Error:", error);
@@ -113,15 +160,40 @@ export const login = async (req, res) => {
   }
 };
 
+// =================== REFRESH TOKEN ===================
+export const refreshAccessToken = async (req, res) => {
+  try {
+    const token = req.cookies.refreshToken;
+    if (!token) return res.status(401).json({ success: false, message: "No refresh token provided" });
+
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user || user.refreshToken !== token) {
+      return res.status(403).json({ success: false, message: "Invalid refresh token" });
+    }
+
+    const accessToken = generateAccessToken(user);
+    res.json({ success: true, accessToken });
+  } catch (error) {
+    console.error("Refresh Token Error:", error);
+    res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
+  }
+};
+
 // =================== LOGOUT ===================
 export const logout = async (req, res) => {
   try {
-    // Stateless JWT: instruct client to delete token.
-    // If you need server-side invalidation, implement a token blacklist.
-    res.status(200).json({
-      success: true,
-      message: "Logged out successfully. Please remove token on client side."
-    });
+    const token = req.cookies.refreshToken;
+    if (token) {
+      const decoded = jwt.decode(token);
+      if (decoded?.id) {
+        await User.findByIdAndUpdate(decoded.id, { $unset: { refreshToken: 1 } });
+      }
+    }
+
+    res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production" });
+    res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout Error:", error);
     res.status(500).json({ success: false, message: "Server error" });
