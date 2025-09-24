@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import CounselorDashboard from './pages/CounselorDashboard.jsx'
+import CounselorSessionPage from './pages/CounselorSessionPage.jsx'
 import VoiceTester from './pages/VoiceTester.jsx'
 import Navbar from './components/Navbar.jsx'
 import AuthPage from './pages/AuthPage.jsx'   
@@ -14,6 +15,7 @@ export default function App(){
             <Route path="/" element={<Navigate to="/admin" replace/>}/>
             <Route path="/admin" element={<AdminDashboard/>}/>
             <Route path="/counselor" element={<CounselorDashboard/>}/>
+            <Route path="/counselor-sessions" element={<CounselorSessionPage/>}/>
             <Route path="/voice" element={<VoiceTester/>}/>
             <Route path="*" element={<Navigate to="/admin" replace/>}/>
             <Route path="/auth" element={<AuthPage/>}/>   
