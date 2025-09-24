@@ -65,7 +65,8 @@ export class AdminReporting {
   }
 
   // Fallback basic session report
-  generateBasicSessionReport(sessionId, sessionData) {
+  generateBasicSessionReport(sessionId, sessionData, opts = {}) {
+    const { updateAnalytics = true } = opts;
     const report = {
       sessionId,
       timestamp: new Date().toISOString(),
@@ -80,8 +81,10 @@ export class AdminReporting {
       llmInsights: { engagement_level: 'medium', main_topics: [] }
     };
 
-    this.updateAnalytics(report);
+    // Always cache the latest report for the session id (overwrites prior),
+    // but only update aggregate analytics when explicitly requested.
     this.sessions.set(sessionId, report);
+    if (updateAnalytics) this.updateAnalytics(report);
     
     return report;
   }
@@ -252,14 +255,45 @@ export class AdminReporting {
     // Compute additional analytics for policy insights
     const heatmap = this.computeMonthlyHeatmap();
     const stressTrend = this.computeStressTrend();
+    // Active users: sessions seen in the last 15 minutes
+    const now = Date.now();
+    const fifteenMin = 15 * 60 * 1000;
+    const recentCount = Array.from(this.sessions.values()).reduce((acc, r) => {
+      const t = new Date(r.timestamp || r.startedAt || 0).getTime();
+      return acc + ((t && (now - t) <= fifteenMin) ? 1 : 0);
+    }, 0);
+
+    // Risk distribution (primary from aggregates)
+    const riskDistribution = { ...this.analytics.riskLevels };
+    const riskSum = Object.values(riskDistribution).reduce((a,b)=>a+(b||0),0);
+    if (riskSum === 0 && this.sessions.size > 0) {
+      // Fallback: compute a lightweight distribution from cached session reports
+      const fallback = { low: 0, medium: 0, high: 0, crisis: 0 };
+      for (const r of this.sessions.values()) {
+        let risk = (r.llmFlags?.overall_risk_level || r.riskAnalysis?.overallRisk || 'low').toString().toLowerCase();
+        if (!['low','medium','high','crisis'].includes(risk)) risk = 'low';
+        fallback[risk] += 1;
+      }
+      Object.assign(riskDistribution, fallback);
+    }
+    // Determine insights source: LLM if any session has non-empty llmInsights patterns/topics
+    const hasLLM = Array.from(this.sessions.values()).some(r =>
+      (Array.isArray(r.llmInsights?.main_topics) && r.llmInsights.main_topics.length) ||
+      (Array.isArray(r.llmInsights?.emotional_patterns) && r.llmInsights.emotional_patterns.length) ||
+      (Array.isArray(r.llmInsights?.coping_strategies) && r.llmInsights.coping_strategies.length)
+    );
+
     return {
       overview: {
-        totalSessions: this.analytics.totalSessions,
-        activeUsers: this.analytics.userEngagement.size,
+        // Use unique session reports count so it reflects sessions observed so far
+        // without inflating per-turn. This updates as soon as a session has any activity.
+        totalSessions: this.sessions.size,
+        activeUsers: recentCount,
         crisisInterventions: this.analytics.crisisInterventions,
-        averageSessionDuration: Math.round(this.analytics.averageSessionDuration || 0)
+        averageSessionDuration: Math.round(this.analytics.averageSessionDuration || 0),
+        insightsSource: hasLLM ? 'LLM' : 'Heuristic'
       },
-      riskDistribution: this.analytics.riskLevels,
+      riskDistribution,
       commonIssues: Array.from(this.analytics.commonIssues.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10),
@@ -359,7 +393,9 @@ export class AdminReporting {
   }
 
   detectEmotionalExpression(turns) {
-    const emotionalWords = ['feel', 'emotion', 'sad', 'happy', 'angry', 'anxious', 'worried', 'excited'];
+    const emotionalWords = [
+      'feel','emotion','sad','happy','angry','anxious','worried','excited','stressed','overwhelmed','panic','afraid','fear','lonely','guilty','ashamed','frustrated','hopeful','relieved'
+    ];
     const emotionalCount = turns.reduce((count, turn) => {
       return count + emotionalWords.filter(word => turn.text.toLowerCase().includes(word)).length;
     }, 0);
@@ -381,11 +417,15 @@ export class AdminReporting {
   extractMainConcerns(turns) {
     const concerns = [];
     const keywords = {
-      'anxiety': ['worried', 'anxious', 'nervous', 'panic', 'fear'],
-      'depression': ['sad', 'hopeless', 'empty', 'worthless', 'depressed'],
-      'relationships': ['relationship', 'partner', 'family', 'friend', 'conflict'],
-      'work': ['work', 'job', 'career', 'boss', 'colleague'],
-      'health': ['health', 'sick', 'pain', 'medical', 'doctor']
+      anxiety: ['worried','anxious','nervous','panic','fear','panic attack','restless','overthinking','racing thoughts','overwhelmed','stress','stressed'],
+      depression: ['sad','hopeless','empty','worthless','depressed','down','low','no energy','fatigued','guilty','tearful'],
+      relationships: ['relationship','partner','boyfriend','girlfriend','family','parent','mother','father','friend','conflict','breakup','lonely','alone'],
+      work: ['work','job','career','boss','manager','colleague','office','deadline','burnout','pressure'],
+      health: ['health','sick','ill','pain','medical','doctor','sleep','insomnia','appetite','headache'],
+      academics: ['study','studies','exam','exams','test','grades','college','assignment','semester','procrastinate','focus','concentration'],
+      self_esteem: ['confidence','self-esteem','worthless','failure','ashamed','inadequate','compare','comparison'],
+      substance: ['alcohol','drink','drinking','smoke','smoking','weed','drugs','substance'],
+      trauma: ['trauma','abuse','violence','harassment','bullying'],
     };
 
     turns.forEach(turn => {
@@ -477,73 +517,87 @@ export class AdminReporting {
   }
 
   updateAnalytics(report) {
-    this.analytics.totalSessions++;
-    
-    // Update risk levels
-    const riskLevel = report.llmFlags?.overall_risk_level || report.riskAnalysis?.overallRisk || 'low';
-    this.analytics.riskLevels[riskLevel] = (this.analytics.riskLevels[riskLevel] || 0) + 1;
-    
-    if (riskLevel === 'high' || riskLevel === 'crisis') {
-      this.analytics.crisisInterventions++;
+    // Ensure the latest report is cached
+    if (report?.sessionId) {
+      const existing = this.sessions.get(report.sessionId) || {};
+      this.sessions.set(report.sessionId, { ...existing, ...report });
     }
-    
-    // Update common issues
-    if (report.userProfile?.concerns) {
-      report.userProfile.concerns.forEach(concern => {
-        this.analytics.commonIssues.set(concern, (this.analytics.commonIssues.get(concern) || 0) + 1);
+
+    // Recompute aggregates from all known session reports (non-inflating)
+    const aggregates = {
+      totalSessions: this.sessions.size,
+      crisisInterventions: 0,
+      averageSessionDuration: 0,
+      commonIssues: new Map(),
+      riskLevels: { low: 0, medium: 0, high: 0, crisis: 0 },
+      userEngagement: new Map(),
+      emotionalPatterns: new Map(),
+      mainTopics: new Map(),
+      copingStrategies: new Map()
+    };
+
+    let totalDuration = 0;
+    for (const r of this.sessions.values()) {
+      // Risk bucket
+      let risk = (r.llmFlags?.overall_risk_level || r.riskAnalysis?.overallRisk || 'low').toString().toLowerCase();
+      if (!['low','medium','high','crisis'].includes(risk)) risk = 'low';
+      aggregates.riskLevels[risk] = (aggregates.riskLevels[risk] || 0) + 1;
+      if (risk === 'high' || risk === 'crisis') aggregates.crisisInterventions++;
+
+      // Duration
+      totalDuration += (r.duration || 0);
+
+      // Common issues
+      (r.userProfile?.concerns || []).forEach(concern => {
+        aggregates.commonIssues.set(concern, (aggregates.commonIssues.get(concern) || 0) + 1);
       });
-    }
-    
-    // Update insights (LLM or heuristic fallbacks)
-    const emotionalFromLLM = report.llmInsights?.emotional_patterns || [];
-    const topicFromLLM = report.llmInsights?.main_topics || [];
-    const copingFromLLM = report.llmInsights?.coping_strategies || [];
 
-    // Emotional patterns: prefer LLM, else use userProfile.emotionalPatterns.dominantEmotion
-    if (emotionalFromLLM.length) {
-      emotionalFromLLM.forEach(p => this.analytics.emotionalPatterns.set(p, (this.analytics.emotionalPatterns.get(p) || 0) + 1));
-    } else if (report.userProfile?.emotionalPatterns?.dominantEmotion) {
-      const p = report.userProfile.emotionalPatterns.dominantEmotion;
-      this.analytics.emotionalPatterns.set(p, (this.analytics.emotionalPatterns.get(p) || 0) + 1);
+      // Insights
+      const emotionalFromLLM = r.llmInsights?.emotional_patterns || [];
+      const topicFromLLM = r.llmInsights?.main_topics || [];
+      const copingFromLLM = r.llmInsights?.coping_strategies || [];
+
+      if (emotionalFromLLM.length) {
+        emotionalFromLLM.forEach(p => aggregates.emotionalPatterns.set(p, (aggregates.emotionalPatterns.get(p) || 0) + 1));
+      } else if (r.userProfile?.emotionalPatterns?.dominantEmotion) {
+        const p = r.userProfile.emotionalPatterns.dominantEmotion;
+        aggregates.emotionalPatterns.set(p, (aggregates.emotionalPatterns.get(p) || 0) + 1);
+      }
+
+      if (topicFromLLM.length) {
+        topicFromLLM.forEach(t => aggregates.mainTopics.set(t, (aggregates.mainTopics.get(t) || 0) + 1));
+      } else if (r.userProfile?.concerns?.length) {
+        r.userProfile.concerns.forEach(t => aggregates.mainTopics.set(t, (aggregates.mainTopics.get(t) || 0) + 1));
+      }
+
+      if (copingFromLLM.length) {
+        copingFromLLM.forEach(c => aggregates.copingStrategies.set(c, (aggregates.copingStrategies.get(c) || 0) + 1));
+      } else if (r.recommendations) {
+        const res = r.recommendations.resources || [];
+        res.forEach(v => aggregates.copingStrategies.set(v, (aggregates.copingStrategies.get(v) || 0) + 1));
+        const addActions = (arr=[]) => arr.forEach(a => {
+          const label = a?.action || a?.type || a;
+          if (!label) return;
+          aggregates.copingStrategies.set(label, (aggregates.copingStrategies.get(label) || 0) + 1);
+        });
+        addActions(r.recommendations.immediate || r.recommendations.immediate_actions);
+        addActions(r.recommendations.shortTerm || r.recommendations.short_term_goals);
+        addActions(r.recommendations.longTerm || r.recommendations.long_term_plans);
+      }
     }
 
-    // Main topics: prefer LLM, else use concerns extracted earlier
-    if (topicFromLLM.length) {
-      topicFromLLM.forEach(t => this.analytics.mainTopics.set(t, (this.analytics.mainTopics.get(t) || 0) + 1));
-    } else if (report.userProfile?.concerns?.length) {
-      report.userProfile.concerns.forEach(t => this.analytics.mainTopics.set(t, (this.analytics.mainTopics.get(t) || 0) + 1));
-    }
-
-    // Coping strategies: prefer LLM, else use recommendation resources/actions
-    if (copingFromLLM.length) {
-      copingFromLLM.forEach(c => this.analytics.copingStrategies.set(c, (this.analytics.copingStrategies.get(c) || 0) + 1));
-    } else if (report.recommendations) {
-      const res = report.recommendations.resources || [];
-      res.forEach(r => this.analytics.copingStrategies.set(r, (this.analytics.copingStrategies.get(r) || 0) + 1));
-      // derive from actions labels if present
-      const addActions = (arr=[]) => arr.forEach(a => {
-        const label = a.action || a.type || a;
-        this.analytics.copingStrategies.set(label, (this.analytics.copingStrategies.get(label) || 0) + 1);
-      });
-      addActions(report.recommendations.immediate || report.recommendations.immediate_actions);
-      addActions(report.recommendations.shortTerm || report.recommendations.short_term_goals);
-      addActions(report.recommendations.longTerm || report.recommendations.long_term_plans);
-    }
-    
-    // Update average session duration
-    const totalDuration = Array.from(this.sessions.values())
-      .reduce((sum, session) => sum + (session.duration || 0), 0);
-    this.analytics.averageSessionDuration = totalDuration / this.analytics.totalSessions;
+    aggregates.averageSessionDuration = aggregates.totalSessions ? (totalDuration / aggregates.totalSessions) : 0;
+    this.analytics = aggregates;
   }
 
   // Additional helper methods would be implemented here...
   detectEmotion(text) {
     // Simple emotion detection - would be enhanced with NLP
-    const positiveWords = ['good', 'great', 'happy', 'excited', 'confident'];
-    const negativeWords = ['bad', 'terrible', 'sad', 'angry', 'frustrated'];
-    
-    const positiveCount = positiveWords.filter(word => text.toLowerCase().includes(word)).length;
-    const negativeCount = negativeWords.filter(word => text.toLowerCase().includes(word)).length;
+    const t = text.toLowerCase();
+    const positiveWords = ['good','great','happy','excited','confident','relieved','hopeful','better','calm'];
+    const negativeWords = ['bad','terrible','sad','angry','frustrated','stressed','anxious','panic','overwhelmed','afraid','lonely','hopeless','guilty','ashamed'];
+    const positiveCount = positiveWords.filter(word => t.includes(word)).length;
+    const negativeCount = negativeWords.filter(word => t.includes(word)).length;
     
     if (positiveCount > negativeCount) return 'positive';
     if (negativeCount > positiveCount) return 'negative';

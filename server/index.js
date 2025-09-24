@@ -5,8 +5,14 @@ import { connectDB } from './src/db/connection.js';
 
 const PORT = process.env.PORT || 5000;
 
-connectDB();
+async function start() {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`Admin server running on http://localhost:${PORT}`);
+  });
+}
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+start().catch((err) => {
+  console.error('Failed to start server', err);
+  process.exit(1);
 });

@@ -68,7 +68,7 @@ Analyze this conversation and identify:
 3. CONCERN FLAGS: General mental health issues (stress, relationship problems)
 4. POSITIVE FLAGS: Strengths, coping strategies, support systems
 
-Respond in JSON format:
+Respond in strict JSON (English only). If uncertain, use empty arrays and set strings to "unknown". Do not include any text outside JSON.
 {
   "crisis_flags": ["flag1", "flag2"],
   "risk_flags": ["flag1", "flag2"],
@@ -85,9 +85,9 @@ Respond in JSON format:
     const conversation = sessionData.turns || [];
     const duration = this.calculateDuration(sessionData.startedAt, sessionData.endedAt);
     
-    const locale = sessionData.locale || 'en-IN';
+    const locale = 'en';
     return `You are a mental health analytics expert analyzing a counseling session.
-Output strictly valid JSON. Keep JSON keys in English. You may include multilingual values, but prefer the user's language inferred by locale: ${locale}.
+Output strictly valid JSON (English only). Keep JSON keys and values in English. If you cannot infer a field, return an empty array [] or the string "unknown". Do not include any extra commentary or markdown.
 
 SESSION DATA:
 - Duration: ${duration} minutes
@@ -107,7 +107,7 @@ Generate comprehensive insights:
 6. ENGAGEMENT LEVEL: How engaged was the user?
 7. THERAPEUTIC ALLIANCE: Quality of counselor-client relationship
 
-Respond in JSON format:
+Respond in strict JSON (English only). If uncertain, use [] or "unknown". No text outside JSON.
 {
   "emotional_patterns": ["emotion1", "emotion2"],
   "main_topics": ["topic1", "topic2"],
@@ -137,7 +137,7 @@ Assess the risk level considering:
 6. TRAUMA: Recent or past traumatic experiences
 7. PROTECTIVE FACTORS: Support systems, reasons for living
 
-Respond in JSON format:
+Respond in strict JSON (English only). If uncertain, set arrays to [] and booleans to false, and use the string "unknown" where needed. No extra text.
 {
   "risk_level": "minimal|low|medium|high|crisis",
   "suicidal_ideation": "none|passive|active|immediate",
@@ -155,9 +155,9 @@ Respond in JSON format:
 
   // Build prompt for recommendations
   buildRecommendationsPrompt(sessionData, insights) {
-    const locale = sessionData.locale || 'en-IN';
+    const locale = 'en';
     return `You are a clinical supervisor providing recommendations based on session analysis.
-Output strictly valid JSON. Keep JSON keys in English. Where free-text appears, prefer the user's language by locale: ${locale}.
+Output strictly valid JSON (English only). Keep all keys and values in English. If you cannot infer a field, return [] or "unknown". No extra commentary.
 
 SESSION DATA:
 - Duration: ${this.calculateDuration(sessionData.startedAt, sessionData.endedAt)} minutes
@@ -176,7 +176,7 @@ Provide specific recommendations:
 5. FOLLOW-UP SCHEDULE: How often to check in
 6. PROFESSIONAL REFERRALS: When to involve specialists
 
-Respond in JSON format:
+Respond in strict JSON (English only). If uncertain, use [] or "unknown".
 {
   "immediate_actions": ["action1", "action2"],
   "short_term_goals": ["goal1", "goal2"],
@@ -192,11 +192,11 @@ Respond in JSON format:
   // Call LLM with prompt via Groq
   async callLLM(prompt) {
     try {
-      const system = 'You are a clinical analytics assistant generating JSON-only outputs for mental health session analysis. Keep responses strictly valid JSON.';
+      const system = 'You are a clinical analytics assistant. Output must be strictly valid JSON only, in English. Do not include markdown, explanations, or prose outside JSON. If uncertain, use empty arrays [] or the string "unknown".';
       const out = await groqChat({
         system,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.4,
+        temperature: 0.2,
         max_tokens: 220
       });
       return out || '';

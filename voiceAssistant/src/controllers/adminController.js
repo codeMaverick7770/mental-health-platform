@@ -4,6 +4,12 @@ import { generateAdminReport } from '../dialogue.js';
 export function dashboard(req, res) {
   try {
     const data = adminReporting.generateDashboardData();
+    // Ensure Total Sessions shows active sessions even before finalization
+    if (!data.overview) data.overview = {};
+    data.overview.totalSessions = Math.max(
+      Number(data.overview.totalSessions || 0),
+      sessions.size
+    );
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to generate dashboard data', details: error.message });

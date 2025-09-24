@@ -4,16 +4,21 @@ import { detectRisk } from '../safety.js';
 import { generateReport } from '../report.js';
 
 export function startSession(req, res) {
-  const { locale = 'en-IN' } = req.body || {};
+  const { locale = 'en' } = req.body || {};
   const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  sessions.set(sessionId, {
+  const session = {
     id: sessionId,
     locale,
     startedAt: new Date().toISOString(),
     turns: [],
     riskFlags: [],
     meta: {}
-  });
+  };
+  sessions.set(sessionId, session);
+  try {
+    // Seed a basic session report so dashboards show the session immediately.
+    adminReporting.generateBasicSessionReport(sessionId, session, { updateAnalytics: false });
+  } catch {}
   res.json({ sessionId });
 }
 
@@ -43,8 +48,8 @@ export async function postTurn(req, res) {
       sessions.set(sessionId, session);
     }
 
-    // Refresh live analytics snapshot for dashboards
-    try { adminReporting.generateBasicSessionReport(sessionId, sessions.get(sessionId)); } catch {}
+    // Refresh live analytics snapshot for dashboards (safe recompute; no inflation)
+    try { adminReporting.generateBasicSessionReport(sessionId, sessions.get(sessionId), { updateAnalytics: true }); } catch {}
 
     // Generate realtime insights for dashboards
     try {
