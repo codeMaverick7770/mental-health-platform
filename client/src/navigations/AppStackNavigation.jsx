@@ -7,6 +7,7 @@ import MainTabNavigation from './MainTabNavigation'
 import MusicPlayerScreen from '../screens/AdditionalScreens/MusicPlayerScreen'
 import ChatScreen from '../screens/AdditionalScreens/ChatScreen'
 import MediaCollectionScreen from '../screens/AdditionalScreens/MediaCollectionScreen'
+import AIScreen from '../screens/AdditionalScreens/AIScreen'
 
 const Stack = createStackNavigator();
 
@@ -18,6 +19,7 @@ const AppStackNavigation = () => {
                 <Stack.Screen name="MusicPlayer" component={MusicPlayerScreen} />
                 <Stack.Screen name="Chat" component={ChatScreen} />
                 <Stack.Screen name="MediaCollection" component={MediaCollectionScreen} />
+                <Stack.Screen name="AIScreen" component={AIScreen} />
             </Stack.Navigator>
         </View>
     )

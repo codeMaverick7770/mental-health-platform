@@ -6,7 +6,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 
 import HomeList from '../../lists/HomeList'
 
-const HomeScreen = () => {
+const HomeScreen = ({navigation}) => {
     const [name, setName] = useState('Peter')
 
     const ListHeader = () => {
@@ -24,7 +24,7 @@ const HomeScreen = () => {
                 </TouchableOpacity>
                 <Text style={styles.h1}>For You</Text>
 
-                <TouchableOpacity style={styles.cardRow} activeOpacity={0.9}>
+                <TouchableOpacity style={styles.cardRow} activeOpacity={0.9} onPress={() => navigation.navigate("AIScreen")}>
                     <View>
                         <Icon name="mic" size={40} color="white" style={{ marginRight: 12 }} />
                     </View>

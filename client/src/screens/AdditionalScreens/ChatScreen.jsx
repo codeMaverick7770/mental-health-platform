@@ -23,8 +23,8 @@ const ChatScreen = ({ route }) => {
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={styles.innerContainer}>
-                        <SharedHeader title={communityName}/>
-                        <View style={{ flex: 1 }}>
+                        <SharedHeader title={communityName} />
+                        <View style={{ flex: 1, margin: 5, }}>
                             <ChatList />
                         </View>
                         <View style={styles.inputRow}>
@@ -55,8 +55,6 @@ const styles = StyleSheet.create({
     },
     innerContainer: {
         flex: 1,
-        //padding: 10,
-        margin: 5,
     },
     inputRow: {
         position: 'absolute',
