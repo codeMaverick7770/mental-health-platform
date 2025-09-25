@@ -1,0 +1,462 @@
+// playlist for audio /video , stroing , retriving .. podcast , (like spotify..)
+// storing history ...
+// faviourties 
+
+// community chats , using , socket.io chats ...
+
+
+
+
+# 🎵 Mental Health App Backend API
+
+This API provides authentication, user management, and media streaming features (similar to Spotify).
+Built with **Node.js, Express.js, MongoDB, Mongoose**.
+
+---
+
+## 🌍 Base URL
+
+```
+http://localhost:5000/api/v1
+```
+
+---
+
+# 🔑 AUTH ROUTES
+
+### **1. Register User**
+
+* **POST** `/auth/register`
+* **Body:**
+
+```json
+{
+  "name": "Shubham",
+  "email": "shubham@example.com",
+  "password": "mypassword123",
+  "role": "student"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "User registered successfully. Please verify your email."
+}
+```
+
+---
+
+### **2. Verify Email**
+
+* **POST** `/auth/verify-email`
+* **Body:**
+
+```json
+{
+  "email": "shubham@example.com",
+  "otp": "123456"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Email verified successfully."
+}
+```
+
+---
+
+### **3. Login**
+
+* **POST** `/auth/login`
+* **Body:**
+
+```json
+{
+  "email": "shubham@example.com",
+  "password": "mypassword123"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "token": "jwt_token_here",
+  "user": {
+    "id": "64b...",
+    "name": "Shubham",
+    "email": "shubham@example.com",
+    "role": "student"
+  }
+}
+```
+
+---
+
+### **4. Logout**
+
+* **POST** `/auth/logout`
+* **Headers:**
+
+```
+Authorization: Bearer <token>
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### **5. Change Password**
+
+* **POST** `/auth/change-password`
+* **Headers:** `Authorization: Bearer <token>`
+* **Body:**
+
+```json
+{
+  "oldPassword": "mypassword123",
+  "newPassword": "newpassword456"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Password updated successfully"
+}
+```
+
+---
+
+### **6. Forgot Password**
+
+* **POST** `/auth/forgot-password`
+* **Body:**
+
+```json
+{
+  "email": "shubham@example.com"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "OTP sent to your email"
+}
+```
+
+---
+
+### **7. Reset Password**
+
+* **POST** `/auth/reset-password`
+* **Body:**
+
+```json
+{
+  "email": "shubham@example.com",
+  "otp": "123456",
+  "newPassword": "newpassword456"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Password reset successful"
+}
+```
+
+---
+
+### **8. Request Account Deletion**
+
+* **POST** `/auth/request-delete`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Account deletion OTP sent to your email"
+}
+```
+
+---
+
+### **9. Confirm Account Deletion**
+
+* **POST** `/auth/confirm-delete`
+* **Body:**
+
+```json
+{
+  "email": "shubham@example.com",
+  "otp": "654321"
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Account deleted successfully"
+}
+```
+
+---
+
+# 🎶 MEDIA ROUTES
+
+### **1. Get All Media**
+
+* **GET** `/media`
+* **Query Params (optional):**
+
+  * `type=audio|video|podcast`
+  * `category=rain`
+  * `language=en`
+  * `tags=calm,study`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "64b...",
+      "title": "Rain Sounds",
+      "type": "audio",
+      "category": "rain",
+      "url": "https://cloudlink.com/rain.mp3",
+      "thumbnail": "https://cloudlink.com/rain.jpg",
+      "duration": 300,
+      "language": "en",
+      "tags": ["calm","sleep"],
+      "isPremium": false
+    }
+  ]
+}
+```
+
+---
+
+### **2. Get Single Media**
+
+* **GET** `/media/:id`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "64b...",
+    "title": "Rain Sounds",
+    "type": "audio",
+    "category": "rain",
+    "url": "https://cloudlink.com/rain.mp3"
+  }
+}
+```
+
+---
+
+### **3. Create Media (Admin Only)**
+
+* **POST** `/media`
+* **Headers:** `Authorization: Bearer <admin_token>`
+* **Body:**
+
+```json
+{
+  "title": "Rain Sounds",
+  "type": "audio",
+  "category": "rain",
+  "url": "https://cloudlink.com/rain.mp3",
+  "thumbnail": "https://cloudlink.com/rain.jpg",
+  "duration": 300,
+  "language": "en",
+  "tags": ["calm","sleep"],
+  "isPremium": false
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": { "id": "64b...", "title": "Rain Sounds" }
+}
+```
+
+---
+
+### **4. Update Media (Admin Only)**
+
+* **PUT** `/media/:id`
+* **Headers:** `Authorization: Bearer <admin_token>`
+* **Body:**
+
+```json
+{
+  "title": "Updated Rain Sounds",
+  "duration": 360
+}
+```
+
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": { "id": "64b...", "title": "Updated Rain Sounds" }
+}
+```
+
+---
+
+### **5. Delete Media (Admin Only)**
+
+* **DELETE** `/media/:id`
+* **Headers:** `Authorization: Bearer <admin_token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Media deleted"
+}
+```
+
+---
+
+# 👤 USER ROUTES
+
+### **1. Get User Profile**
+
+* **GET** `/users/me`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "64b...",
+    "name": "Shubham",
+    "email": "shubham@example.com",
+    "role": "student",
+    "favorites": [],
+    "history": []
+  }
+}
+```
+
+---
+
+### **2. Add Media to Favorites**
+
+* **POST** `/users/favorites/:mediaId`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Added to favorites"
+}
+```
+
+---
+
+### **3. Remove Media from Favorites**
+
+* **DELETE** `/users/favorites/:mediaId`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Removed from favorites"
+}
+```
+
+---
+
+### **4. Get Favorites**
+
+* **GET** `/users/favorites`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": [ { "id": "64b...", "title": "Rain Sounds" } ]
+}
+```
+
+---
+
+### **5. Add Media to History (when user plays something)**
+
+* **POST** `/users/history/:mediaId`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Media added to history"
+}
+```
+
+---
+
+### **6. Get History**
+
+* **GET** `/users/history`
+* **Headers:** `Authorization: Bearer <token>`
+* **Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "64b...", "title": "Rain Sounds", "playedAt": "2025-09-16T12:00:00Z" }
+  ]
+}
+```
+
+---
+
+# ✅ Summary
+
+* **Auth API** → Handles signup, login, email verification, password reset, account deletion.
+* **Media API** → Provides audio/video/podcast content. Admin can add, update, delete.
+* **User API** → Manages profile, favorites, and history.

@@ -15,5 +15,9 @@
   "type": "commonjs",
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "react-router-dom": "^7.9.1",
+    "helmet": "^8.1.0"
   }
 }
