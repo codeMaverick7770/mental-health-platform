@@ -27,6 +27,9 @@ export default function Navbar() {
           <NavLink to="/counselor" className={linkClass} onClick={close}>
             Counselor
           </NavLink>
+          <NavLink to="/counselor-sessions" className={linkClass} onClick={close}>
+            My Sessions
+          </NavLink>
           <NavLink to="/voice" className={linkClass} onClick={close}>
             Voice Tester
           </NavLink>
@@ -67,6 +70,9 @@ export default function Navbar() {
             </NavLink>
             <NavLink to="/counselor" className={linkClass} onClick={close}>
               Counselor
+            </NavLink>
+            <NavLink to="/counselor-sessions" className={linkClass} onClick={close}>
+              My Sessions
             </NavLink>
             <NavLink to="/voice" className={linkClass} onClick={close}>
               Voice Tester

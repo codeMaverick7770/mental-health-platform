@@ -8,7 +8,8 @@ export async function getCounselorReport(req, res) {
     const report = await adminReporting.generateCounselorReport(sessionId, session);
     const overall = (report?.riskAssessment?.overallRisk || '').toString().toUpperCase();
     const priority = (report?.priority || '').toString().toUpperCase();
-    const bookingNeeded = overall === 'CRISIS' || priority === 'CRITICAL';
+    // Treat HIGH or CRISIS risk as needing booking in counselor workflow
+    const bookingNeeded = overall === 'CRISIS' || overall === 'HIGH' || priority === 'CRITICAL';
     res.json({ ...report, bookingNeeded });
   } catch (error) {
     res.status(500).json({ error: 'Failed to generate counselor report', details: error.message });
@@ -27,7 +28,7 @@ export async function listCounselorReports(req, res) {
           const report = await adminReporting.generateCounselorReport(session.id, session);
           const overall = (report?.riskAssessment?.overallRisk || '').toString().toUpperCase();
           const pri = (report?.priority || '').toString().toUpperCase();
-          const bookingNeeded = overall === 'CRISIS' || pri === 'CRITICAL';
+          const bookingNeeded = overall === 'CRISIS' || overall === 'HIGH' || pri === 'CRITICAL';
           return {
             sessionId: session.id,
             startedAt: session.startedAt,

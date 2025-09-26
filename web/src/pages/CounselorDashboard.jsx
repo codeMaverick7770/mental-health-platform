@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   OctagonAlert,
@@ -153,6 +154,7 @@ const mockModal = {
 };
 
 export default function CounselorDashboard() {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [filter, setFilter] = useState('all');
   const [modal, setModal] = useState(null);
@@ -193,6 +195,83 @@ export default function CounselorDashboard() {
     }
   }
   useEffect(() => { refresh(); const t = setInterval(refresh, 30000); return () => clearInterval(t); }, []);
+
+  // Open a single counselor report in a modal
+  async function openReport(sessionId) {
+    try {
+      const r = await fetch(`/api/counselor/report/${sessionId}`);
+      const data = await r.json();
+      const overall = (data?.riskAssessment?.overallRisk || '').toString().toLowerCase();
+      const pri = (data?.priority || '').toString().toUpperCase();
+      const bookingNeeded = data?.bookingNeeded ?? (overall === 'high' || overall === 'critical' || pri === 'CRITICAL');
+      setModal({ ...data, sessionId, bookingNeeded });
+    } catch (e) {
+      // Fallback to mock modal if API fails
+      setModal({ ...mockModal, sessionId });
+    }
+  }
+
+  // Download current modal report as JSON
+  function downloadReport() {
+    try {
+      const blob = new Blob([JSON.stringify(modal || {}, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `counselor-report-${(modal?.sessionId || 'session').slice(-8)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {}
+  }
+
+  // Admin booking action from modal
+  async function submitAdminBooking() {
+    if (!modal?.sessionId) return;
+    setBookingBusy(true);
+    try {
+      // Call booking proxy (voice assistant -> backend)
+      const resp = await fetch('/api/book/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: modal.sessionId,
+          risk: modal?.riskAssessment?.overallRisk || 'medium',
+          source: 'counselor-dashboard'
+        })
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        alert(`Booking failed: ${resp.status} ${text}`);
+        setBookingBusy(false);
+        return;
+      }
+
+      const data = await resp.json().catch(() => ({}));
+      // Mark locally as booked
+      setBookedSessions(prev => new Set([...Array.from(prev), modal.sessionId]));
+
+      // Ensure session is visible in My Sessions with scheduled status
+      try {
+        await fetch(`/api/counselor/session/${modal.sessionId}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'scheduled' })
+        });
+      } catch {}
+
+      // Navigate to My Sessions for counselor to proceed
+      try { navigate('/counselor-sessions'); } catch {}
+
+      setBookingBusy(false);
+      setModal(null);
+    } catch (e) {
+      alert(`Admin booking error: ${e?.message || e}`);
+      setBookingBusy(false);
+    }
+  }
 
   const shown = filter === 'all'
     ? reports

@@ -45,6 +45,41 @@ app.get('/', (req, res) => {
   });
 });
 
+// Seed some demo sessions and analytics so dashboards are not empty in dev
+app.post('/api/admin/seed-demo', async (req, res) => {
+  try {
+    const now = Date.now();
+    const toIso = (ms) => new Date(ms).toISOString();
+
+    function makeSession(offsetMs, opts = {}){
+      const id = `${now+offsetMs}-${Math.random().toString(36).slice(2,10)}`;
+      const sess = {
+        id,
+        locale: 'en',
+        startedAt: toIso(now + offsetMs),
+        turns: [
+          { role: 'user', text: 'I am feeling very anxious lately', timestamp: toIso(now + offsetMs + 1000) },
+          { role: 'assistant', text: 'I am here to help. Can you share more?', timestamp: toIso(now + offsetMs + 2000) }
+        ],
+        riskFlags: [],
+        meta: { userName: opts.userName || 'Anonymous' }
+      };
+      if (opts.ended) sess.endedAt = toIso(now + offsetMs + 60*1000);
+      sessions.set(id, sess);
+      try { VAAdminReporting.generateBasicSessionReport(id, sess, { updateAnalytics: true }); } catch {}
+      return id;
+    }
+
+    const s1 = makeSession(-60*60*1000, { userName: 'Alex', ended: true }); // 1h ago completed
+    const s2 = makeSession(-10*60*1000, { userName: 'Sam' }); // 10m ago ongoing
+
+    return res.json({ ok: true, sessions: [s1, s2] });
+  } catch (e) {
+    console.error('Seed demo failed', e);
+    return res.status(500).json({ error: 'Failed to seed demo data' });
+  }
+});
+
 // Session API
 app.post('/api/session/start', startSession);
 app.post('/api/session/turn', postTurn);
@@ -70,6 +105,111 @@ app.get('/api/resources', listResources);
 // External integration hooks
 app.post('/api/hooks/booking', hookBooking);
 app.post('/api/hooks/peer-support', hookPeer);
+
+// ------------------ COUNSELOR SESSION MANAGEMENT (for web UI) ------------------
+import { sessions } from './src/state.js';
+import { adminReporting as VAAdminReporting } from './src/state.js';
+
+// Helper to compute status for a session
+function computeStatus(sess){
+  if (!sess) return 'cancelled';
+  if (sess.endedAt) return 'completed';
+  return sess.status || 'scheduled';
+}
+
+// List sessions (basic view for counselor)
+app.get('/api/counselor/sessions', (req, res) => {
+  try {
+    const list = Array.from(sessions.entries())
+      .sort((a,b) => new Date(b[1].startedAt) - new Date(a[1].startedAt))
+      .map(([id, s]) => ({
+        sessionId: id,
+        userName: s.meta?.userName || 'Anonymous',
+        scheduledAt: s.startedAt,
+        duration: s.endedAt ? Math.max(1, Math.round((new Date(s.endedAt)-new Date(s.startedAt))/60000)) : undefined,
+        status: computeStatus(s)
+      }));
+    res.json({ sessions: list });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to list sessions' });
+  }
+});
+
+// Get a specific session (with messages/notes)
+app.get('/api/counselor/session/:sessionId', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const s = sessions.get(sessionId);
+    if (!s) return res.status(404).json({ error: 'Session not found' });
+    const messages = (s.turns || []).map((t, idx) => ({
+      id: idx + 1,
+      message: t.text,
+      sender: t.role === 'assistant' ? 'user' : (t.role || 'system'),
+      timestamp: t.timestamp || new Date().toISOString()
+    }));
+    const resp = {
+      sessionId,
+      userName: s.meta?.userName || 'Anonymous',
+      status: computeStatus(s),
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      messages,
+      notes: s.meta?.notes || ''
+    };
+    res.json(resp);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load session' });
+  }
+});
+
+// Post a counselor message into the session
+app.post('/api/counselor/session/:sessionId/message', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { message, sender = 'counselor', timestamp = new Date().toISOString() } = req.body || {};
+    const s = sessions.get(sessionId);
+    if (!s) return res.status(404).json({ error: 'Session not found' });
+    if (!message || !String(message).trim()) return res.status(400).json({ error: 'Message required' });
+    s.turns = Array.isArray(s.turns) ? s.turns : [];
+    s.turns.push({ role: sender, text: String(message), timestamp });
+    sessions.set(sessionId, s);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to post message' });
+  }
+});
+
+// Save session notes
+app.post('/api/counselor/session/:sessionId/notes', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { notes = '' } = req.body || {};
+    const s = sessions.get(sessionId);
+    if (!s) return res.status(404).json({ error: 'Session not found' });
+    s.meta = { ...(s.meta || {}), notes: String(notes) };
+    sessions.set(sessionId, s);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to save notes' });
+  }
+});
+
+// Update session status
+app.post('/api/counselor/session/:sessionId/status', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { status } = req.body || {};
+    const s = sessions.get(sessionId);
+    if (!s) return res.status(404).json({ error: 'Session not found' });
+    if (!status) return res.status(400).json({ error: 'Missing status' });
+    s.status = String(status);
+    if (status === 'completed' && !s.endedAt) s.endedAt = new Date().toISOString();
+    sessions.set(sessionId, s);
+    res.json({ ok: true, status: s.status });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
 
 // ------------------ BOOKING PROXY (to main backend) ------------------
 app.post('/api/book/admin', async (req, res) => {
