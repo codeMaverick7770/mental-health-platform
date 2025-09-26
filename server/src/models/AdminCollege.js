@@ -33,4 +33,6 @@ const AdminCollegeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model('AdminCollege', AdminCollegeSchema);
+const AdminCollege = mongoose.model('AdminCollege', AdminCollegeSchema); 
+
+export default AdminCollege;

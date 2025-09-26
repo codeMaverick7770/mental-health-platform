@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
-import College from "../models/college.model.js";
+import AdminCollege from "../models/AdminCollege.js";
 import Otp from "../models/otp.model.js";
 import { sendOtpEmail } from "../utils/email.utils.js";
 import dotenv from "dotenv";
@@ -24,63 +24,84 @@ const generateRefreshToken = (user) => {
     { expiresIn: "7d" } // long-lived
   );
 };
+
 // =================== REGISTER ===================
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // ✅ Extract domain
-    const domain = email.split("@")[1].toLowerCase();
+    // Normalize domain
+    let domain = email.split("@")[1];
+    if (!domain) {
+      return res.status(400).json({ success: false, message: "Invalid email" });
+    }
+    domain = domain.trim().toLowerCase();
 
-    // ✅ Check if college exists with that domain
-    const college = await College.findOne({ domain });
+    // Check college
+    const college = await AdminCollege.findOne({
+      domain,
+      isActive: true,
+      "verification.status": "verified",
+    });
+
     if (!college) {
       return res.status(400).json({
         success: false,
-        message: "Your college is not registered in our system",
+        message: "Your college is not registered or not verified/active.",
       });
     }
 
-    // ✅ Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already exists",
-      });
-    }
+    // Find user
+    let user = await User.findOne({ email });
 
-    // ✅ Hash password
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ✅ Create new user with domain + college ref
-    const newUser = new User({
-      name,
-      email,
-      domain,
-      password: hashedPassword,
-      role,
-      college: college._id,
-      isVerified: false,
-    });
-    await newUser.save();
+    if (!user) {
+      // User does not exist → create new user
+      user = new User({
+        name,
+        email,
+        domain,
+        password: hashedPassword,
+        role,
+        college: college._id,
+        isVerified: false,
+      });
+      await user.save();
+    } else if (user.isVerified) {
+      // User exists and already verified → cannot register again
+      return res.status(400).json({
+        success: false,
+        message: "User already registered and verified. Please login.",
+      });
+    } else {
+      // User exists but not verified → update details + password
+      user.name = name;
+      user.role = role;
+      user.password = hashedPassword;
+      await user.save();
+    }
 
-    // ✅ Generate OTP for email verification
+    // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Upsert OTP record
     const otpRecord = await Otp.findOneAndUpdate(
       { email, purpose: "register" },
       { otp, createdAt: new Date() },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // ✅ Send OTP email
+    // Send OTP email
     await sendOtpEmail(email, otpRecord.otp);
 
     res.status(201).json({
       success: true,
-      message: "User registered. Please verify with OTP sent to your email.",
+      message: "OTP sent. Please verify your email to complete registration.",
     });
+
   } catch (error) {
     console.error("Register Error:", error);
     res.status(500).json({
@@ -89,6 +110,7 @@ export const register = async (req, res) => {
     });
   }
 };
+
 
 export const verifyEmail = async (req, res) => {
   try {

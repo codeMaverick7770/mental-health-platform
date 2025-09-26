@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
-import College from "../models/college.model.js";
 
 export const authMiddleware = async (req, res, next) => {
   try {
