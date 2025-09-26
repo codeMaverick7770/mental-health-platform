@@ -107,6 +107,13 @@ android {
     }
 }
 
+// Exclude legacy Android Support libraries to avoid duplicate classes with AndroidX
+configurations.all {
+    exclude group: 'com.android.support'
+    exclude group: 'com.android.support', module: 'support-compat'
+    exclude group: 'com.android.support', module: 'versionedparcelable'
+}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")

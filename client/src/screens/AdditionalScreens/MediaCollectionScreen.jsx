@@ -19,7 +19,7 @@ const playlist = {
         { id: '9', title: 'Peaceful Mind', artist: 'Serenity', length: '4:20' },
         { id: '10', title: 'Cloud Surfing', artist: 'Skyline', length: '3:55' },
     ],
-}; 
+};
 
 const TrackItem = ({ item, index }) => (
     <TouchableOpacity style={styles.trackRow} activeOpacity={0.7}>
