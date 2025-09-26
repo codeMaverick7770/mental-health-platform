@@ -46,6 +46,45 @@ const OtpScreen = ({ navigation, route }) => {
         const otp = OTP.join('');
 
         Alert.alert(otp);
+        if (!email || !password) {
+            Alert.alert("All fields are mandatory.");
+            return;
+        }
+
+        if (password.length < 8) {
+            Alert.alert("Password must contain alteast 8 characters.");
+            return;
+        }
+
+        try {
+            if(!counter){
+                const response = await axios.post(`${baseServer}`, {
+                    email,
+                    password,
+                    otp
+                });
+            }
+            else{
+                const response = await axios.post(`${baseServer}`, {
+                    email,
+                    otp
+                });
+            }
+            
+
+            if (response.data.success) {
+                navigation.navigate('SignIn');
+            }
+            else {
+                Alert.alert("Something Went Wrong!");
+                console.log(response.data.message);
+            }
+
+        } catch (err) {
+            Alert.alert('OTP Failed!!',
+                err.response?.data?.message || 'Error'
+            );
+        }
 
     };
 

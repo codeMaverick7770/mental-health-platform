@@ -1,53 +1,84 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import Icon from "react-native-vector-icons/MaterialIcons";
 
 import HomeList from '../../lists/HomeList'
+import { initSocket, socket } from '../../utils/socket';
+import SessionCard from '../../components/SessionCard';
 
-const HomeScreen = ({navigation}) => {
+const HomeScreen = ({ navigation }) => {
     const [name, setName] = useState('Peter')
+
+    let session;
+    session = {
+        _id: "sess_12345678",
+        userName: "Sarah Johnson",
+        scheduledAt: "2024-01-15T10:00:00Z",
+        status: "scheduled",
+        duration: 60
+    }
+
+    // useEffect(() => {
+    //     const connectSocket = async () => {
+    //         const authToken = await AsyncStorage.getItem('authToken');
+    //         initSocket(authToken);
+    //     }
+        
+    //     connectSocket();
+
+    //     return () => {
+    //         socket.disconnect(); // ✅ disconnects only on unmount
+    //         console.log('Socket disconnected on component unmount');
+    //     };
+    // }, []);
 
     const ListHeader = () => {
         return (
             <>
-            <View style={styles.navBar} >
-                <Text style={styles.navBarLeft} >Welcome, {name}</Text>
-                <Text style={styles.navBarRight} >Logo</Text>
-            </View>
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.cardRow} activeOpacity={0.5}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.cardTitle}>How are you feeling today?</Text>
-                    </View>
-                </TouchableOpacity>
-                <Text style={styles.h1}>For You</Text>
+                <View style={styles.navBar} >
+                    <Text style={styles.navBarLeft} >Welcome, {name}</Text>
+                    <Text style={styles.navBarRight} >Logo</Text>
+                </View>
+                <View style={styles.header}>
+                    <TouchableOpacity style={styles.cardRow} activeOpacity={0.5}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={styles.cardTitle}>How are you feeling today?</Text>
+                        </View>
+                    </TouchableOpacity>
+                    <Text style={styles.h1}>For You</Text>
 
-                <TouchableOpacity style={styles.cardRow} activeOpacity={0.9} onPress={() => navigation.navigate("AIScreen")}>
-                    <View>
-                        <Icon name="mic" size={40} color="white" style={{ marginRight: 12 }} />
-                    </View>
-                    <View>
-                        <Text style={styles.cardTitle}>AI Counselor</Text>
-                        <Text style={styles.cardSub}>Start a conversation</Text>
-                    </View>
-                </TouchableOpacity>
+                    <TouchableOpacity style={styles.cardRow} activeOpacity={0.9} onPress={() => navigation.navigate("AIScreen")}>
+                        <View>
+                            <Icon name="mic" size={40} color="white" style={{ marginRight: 12 }} />
+                        </View>
+                        <View>
+                            <Text style={styles.cardTitle}>AI Counselor</Text>
+                            <Text style={styles.cardSub}>Start a conversation</Text>
+                        </View>
+                    </TouchableOpacity>
 
-                <TouchableOpacity style={styles.cardRow} activeOpacity={0.9}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.cardTitle}>Continue journal entry</Text>
-                        <Text style={styles.cardSub}>Lorem ipsum dolor sit amet…</Text>
-                    </View>
-                    <Icon name="chevron-right" size={20} color="grey" />
-                </TouchableOpacity>
-            </View>
+                    <TouchableOpacity style={styles.cardRow} activeOpacity={0.9}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={styles.cardTitle}>Continue journal entry</Text>
+                            <Text style={styles.cardSub}>Lorem ipsum dolor sit amet…</Text>
+                        </View>
+                        <Icon name="chevron-right" size={20} color="grey" />
+                    </TouchableOpacity>
+                    {session && (
+                        <>
+                            <Text style={styles.h1}>Upcoming Session</Text>
+                            <SessionCard item={session} />
+                        </> 
+                    )}
+                </View>
             </>
         )
     }
     return (
         <SafeAreaView style={styles.container}>
-            <HomeList ListHeader={ListHeader}/>
+            <HomeList ListHeader={ListHeader} />
         </SafeAreaView>
     )
 }

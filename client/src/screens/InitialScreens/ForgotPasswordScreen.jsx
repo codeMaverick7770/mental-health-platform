@@ -8,8 +8,34 @@ import FormButton from '../../components/FormButton';
 const ForgotPasswordScreen = ({navigation}) => {
     const [email, setEmail] = useState();
 
-    const forgotPasswordHandler = () => {
+    const forgotPasswordHandler = async () => {
         navigation.navigate("OTP", {counter: 0, email});
+        if (!email) {
+            Alert.alert("All fields are mandatory.");
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${baseServer}`, {
+                email,
+            });
+
+            if (response.data.success) {
+                navigation.navigate("OtpScreen", {
+                    email,
+                    counter: 0
+                });
+            }
+            else {
+                Alert.alert("Something Went Wrong!");
+                console.log(response.data.message);
+            }
+
+        } catch (err) {
+            Alert.alert('Forgot Password Failed!!',
+                err.response?.data?.message || 'Error'
+            );
+        }
     };
 
     return (

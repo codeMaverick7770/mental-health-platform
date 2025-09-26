@@ -11,8 +11,37 @@ const SignInScreen = ({navigation}) => {
     const [email, setEmail] = useState();
     const [password, setPassword] = useState();
 
-    const signInHandler = () => {
+    const signInHandler = async () => {
         navigation.navigate("AppStack")
+        if (!email || !password) {
+            Alert.alert("All fields are mandatory.");
+            return;
+        }
+
+        if (password.length < 8) {
+            Alert.alert("Password must contain alteast 8 characters.");
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${baseServer}`, {
+                email,
+                password,
+            });
+
+            if (response.data.success) {
+                
+            }
+            else {
+                Alert.alert("Something Went Wrong!");
+                console.log(response.data.message);
+            }
+
+        } catch (err) {
+            Alert.alert('Sign In Failed!!',
+                err.response?.data?.message || 'Error'
+            );
+        }
     };
 
     return (

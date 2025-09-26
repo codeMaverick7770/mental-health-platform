@@ -7,7 +7,7 @@ const activeSessions = new Map();
 const adminReporting = new AdminReporting();
 const smartCounselor = new SmartCounselor();
 
-export async function createResponse(userText, { locale = 'en-IN', risk = {}, priorTurns = [], sessionId = null } = {}) {
+export async function createResponse(userText, { locale = 'en-IN', risk = {}, priorTurns = [], sessionId = null, addUserTurn = true } = {}) {
   const clean = (userText || '').trim();
   
   // Initialize or get session data
@@ -31,13 +31,19 @@ export async function createResponse(userText, { locale = 'en-IN', risk = {}, pr
     activeSessions.set(sessionId, session);
   }
 
-  // Add user turn to session
-  session.turns.push({
-    role: 'user',
-    text: clean,
-    timestamp: new Date().toISOString(),
-    risk: risk
-  });
+  // Add user turn to session only if caller hasn't already persisted it
+  if (addUserTurn) {
+    const lastTurn = Array.isArray(session.turns) && session.turns.length > 0 ? session.turns[session.turns.length - 1] : null;
+    const isDuplicate = !!lastTurn && lastTurn.role === 'user' && String(lastTurn.text || '').trim() === clean;
+    if (!isDuplicate) {
+      session.turns.push({
+        role: 'user',
+        text: clean,
+        timestamp: new Date().toISOString(),
+        risk: risk
+      });
+    }
+  }
 
   // Handle empty input
   if (!clean) {

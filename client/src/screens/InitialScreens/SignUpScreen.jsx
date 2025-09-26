@@ -5,14 +5,48 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import FormInput from '../../components/FormInput'
 import FormButton from '../../components/FormButton'
+import baseServer from '../../utils/config';
 
 const SignUpScreen = ({ navigation }) => {
-    const [name, setName] = useState();
     const [email, setEmail] = useState();
     const [password, setPassword] = useState();
     const [confirmPassword, setConfirmPassword] = useState();
 
-    const signUpHandler = () => {};
+    const signUpHandler = async () => {
+        //return navigation.navigate("MainTab");
+        if (!email || !password) {
+            Alert.alert("All fields are mandatory.");
+            return;
+        }
+
+        if (password.length < 8) {
+            Alert.alert("Password must contain alteast 8 characters.");
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${baseServer}`, {
+                email,
+                password,
+            });
+
+            if (response.data.success) {
+                navigation.navigate("OtpScreen", {
+                    email,
+                    counter: 1
+                });
+            }
+            else {
+                Alert.alert("Something Went Wrong!");
+                console.log(response.data.message);
+            }
+
+        } catch (err) {
+            Alert.alert('Sign Up Failed!!',
+                err.response?.data?.message || 'Error'
+            );
+        }
+    };
 
     return (
         <SafeAreaView style={styles.Container}>

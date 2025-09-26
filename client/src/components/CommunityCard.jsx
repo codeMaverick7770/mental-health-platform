@@ -7,7 +7,7 @@ const CommunityCard = ({ item }) => {
     const [joined, setJoined] = useState(false);
     const goToChat = () => {
         if(joined){
-            navigation.navigate("Chat", { communityName: item.communityName });
+            navigation.navigate("Chat", { title: item.communityName, _id: item._id });
         }
     }
     const joinHandler = () => {

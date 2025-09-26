@@ -1,11 +1,12 @@
-import { Alert, Keyboard, KeyboardAvoidingView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
-import React, { useState } from 'react'
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
+import React, { useState, useEffect } from 'react'
 import ChatList from '../../lists/ChatList'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import SharedHeader from '../../components/SharedHeader'
+import { socket } from '../../utils/socket'
 
 const ChatScreen = ({ route }) => {
-    const {communityName} = route.params;
+    const { title, _id } = route.params;
 
     const [text, setText] = useState('');
     const sendMessage = () => {
@@ -14,6 +15,28 @@ const ChatScreen = ({ route }) => {
             setText("");
         }
     };
+
+    // useEffect(() => {
+    //     if(socket?.connected){
+    //         if(_id) {
+    //             socket.emit("joinRoom", _id);
+    //             console.log(`Joined room: ${_id}`);
+    //         } else {
+    //             // Handle case where no room ID is provided
+    //             console.log("No room ID provided for chat");
+    //         }
+    //     } else {
+    //         console.log("Socket not connected");
+    //     }
+
+    //     return () => {
+    //         if(socket?.connected && _id) {
+    //             socket.emit("leaveRoom", _id);
+    //             console.log(`Left room: ${_id}`);
+    //         }
+    //     }
+    // }, [_id])
+
     return (
         <SafeAreaView style={{ flex: 1 }}>
             <KeyboardAvoidingView
@@ -23,7 +46,7 @@ const ChatScreen = ({ route }) => {
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={styles.innerContainer}>
-                        <SharedHeader title={communityName} />
+                        <SharedHeader title={title} />
                         <View style={{ flex: 1, margin: 5, }}>
                             <ChatList />
                         </View>

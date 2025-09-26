@@ -44,7 +44,8 @@ export async function postTurn(req, res) {
       locale: session.locale, 
       risk, 
       priorTurns: session.turns,
-      sessionId: sessionId
+      sessionId: sessionId,
+      addUserTurn: false
     });
 
     if (response.session) {
