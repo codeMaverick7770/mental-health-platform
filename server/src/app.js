@@ -4,8 +4,8 @@ import dotenv from "dotenv";
 
 import adminAuthRoutes from './routes/adminAuth.routes.js';
 import ingestRoutes from './routes/ingest.routes.js';
-import adminBookingRouter from "../routes/adminBookingRoutes.js";
-import sessionRouter from "../routes/sessionRoutes.js";
+import adminBookingRouter from "./routes/adminBookingRoutes.js";
+import sessionRouter from "./routes/sessionRoutes.js";
 
 dotenv.config();
 const app = express();

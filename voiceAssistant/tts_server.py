@@ -7,11 +7,10 @@ import random
 import os
 import azure.cognitiveservices.speech as speechsdk
 
-DEFAULT_VOICE = "en-IN-NeerjaNeural"  # warm Indian female (English)
-DEFAULT_HI_VOICE = "hi-IN-SwaraNeural"  # warm Indian female (Hindi)
-# Added defaults for J&K and regional language support
-DEFAULT_UR_VOICE = "ur-PK-UzmaNeural"  # Urdu (closest available; PK locale)
-DEFAULT_PA_VOICE = "pa-IN-GaganNeural"  # Punjabi (India)
+DEFAULT_VOICE = "en-IN-NeerjaNeural" 
+DEFAULT_HI_VOICE = "hi-IN-SwaraNeural" 
+DEFAULT_UR_VOICE = "ur-PK-UzmaNeural"  
+DEFAULT_PA_VOICE = "pa-IN-GaganNeural"  
 
 app = FastAPI(title="Neural TTS Service")
 app.add_middleware(
