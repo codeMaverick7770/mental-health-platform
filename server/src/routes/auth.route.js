@@ -10,8 +10,8 @@ import {
   requestDeleteAccount,
   confirmDeleteAccount
 } from "../controllers/auth.controller.js";
-import { authMiddleware } from "../utils/auth.utills.js";
-import { sendOtpEmail } from "../utils/email.utils.js"; // ✅ import your OTP sender
+import { authMiddleware } from "../utils/auth.utils.js";
+import { sendOtpEmail } from "../utils/email.utils.js"; 
 
 const router = express.Router();
 
