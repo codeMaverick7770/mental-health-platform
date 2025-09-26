@@ -12,7 +12,10 @@ const { width } = Dimensions.get('window');
 function useVoiceAssistantApi() {
     const baseUrl = useMemo(() => {
         if (global?.VA_BASE_URL) return global.VA_BASE_URL;
-        if (Platform.OS === 'android') return 'http://10.130.86.124:3000';
+        if (Platform.OS === 'android') {
+            // Default Android emulator loopback; override via global.VA_BASE_URL if needed
+            return 'http://10.130.86.124:3000';
+        }
         return 'http://localhost:3000';
     }, []);
     const startSession = async (locale = 'en-IN') => {
@@ -61,6 +64,7 @@ const BOT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png';
 const AIScreen = () => {
     const { startSession, sendTurn, endSession } = useVoiceAssistantApi();
     const [sessionId, setSessionId] = useState(null);
+    const creatingSessionRef = useRef(false);
     const [messages, setMessages] = useState(() => {
         const t = new Date();
         return [
@@ -86,11 +90,14 @@ const AIScreen = () => {
     useEffect(() => {
         let active = true;
         (async () => {
+            if (creatingSessionRef.current) return;
+            creatingSessionRef.current = true;
             const id = await startSession('en-IN');
             if (active) {
                 setSessionId(id);
                 if (!id) Alert.alert('AI unavailable', 'Could not connect to assistant server.');
             }
+            creatingSessionRef.current = false;
         })();
         return () => { active = false; };
     }, [startSession]);
@@ -230,11 +237,16 @@ const AIScreen = () => {
         requestAnimationFrame(() => { onSend(prompt); });
     };
 
+    const sendingRef = useRef(false);
     const onSend = async (overrideText) => {
         const userText = (overrideText ?? text).trim();
         if (!userText) return;
         if (!sessionId) {
             Alert.alert('AI not ready', 'Please wait a moment and try again.');
+            return;
+        }
+        if (sendingRef.current) {
+            // Avoid concurrent sends; let the in-flight complete first
             return;
         }
         const now = new Date();
@@ -250,8 +262,10 @@ const AIScreen = () => {
         setMessages(prev => [userMsg, ...prev]);
         setTyping(true);
 
+        sendingRef.current = true;
         const { reply, error } = await sendTurn({ sessionId, userText });
         setTyping(false);
+        sendingRef.current = false;
 
         if (error || !reply) {
             const errMsg = {
