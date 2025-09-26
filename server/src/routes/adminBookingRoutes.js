@@ -6,5 +6,3 @@ const router = express.Router();
 router.post("/book/admin", bookByAdmin);
 
 export default router;
-
-

@@ -4,8 +4,8 @@ import dotenv from "dotenv";
 
 import adminAuthRoutes from './routes/adminAuth.routes.js';
 import ingestRoutes from './routes/ingest.routes.js';
-import adminBookingRouter from "../routes/adminBookingRoutes.js";
-import sessionRouter from "../routes/sessionRoutes.js";
+import adminBookingRouter from "./routes/adminBookingRoutes.js";
+import sessionRouter from "./routes/sessionRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -37,10 +37,14 @@ app.get("/", (req, res) => {
 import authRoutes from "./routes/auth.route.js";
 import mediaRoutes from "./routes/media.routes.js";
 import userRoutes from "./routes/user.route.js";
+import communityRoutes from "./routes/community.routes.js";
+import messageRoutes from "./routes/message.route.js";
 
 // ========== Routes ==========
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/media", mediaRoutes);
 app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/communities", communityRoutes);
+app.use("/api/v1/messages", messageRoutes);
 
 export default app;

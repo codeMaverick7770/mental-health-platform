@@ -58,5 +58,3 @@ export const bookByAdmin = async (req, res) => {
       return res.status(500).json({ error: err.message || 'Internal error' });
     }
   };
-
-
