@@ -67,17 +67,19 @@ export class AdminReporting {
   // Fallback basic session report
   generateBasicSessionReport(sessionId, sessionData, opts = {}) {
     const { updateAnalytics = true } = opts;
+    const riskAnalysis = this.analyzeRiskLevels(sessionData);
     const report = {
       sessionId,
       timestamp: new Date().toISOString(),
       duration: this.calculateDuration(sessionData.startedAt, sessionData.endedAt),
       userProfile: this.analyzeUserProfile(sessionData),
       assessments: this.processAssessments(sessionData),
-      riskAnalysis: this.analyzeRiskLevels(sessionData),
+      riskAnalysis,
       recommendations: this.generateSessionRecommendations(sessionData),
       followUpActions: this.determineFollowUpActions(sessionData),
       adminAlerts: this.checkForAdminAlerts(sessionData),
-      llmFlags: { overall_risk_level: 'low', confidence: 0.5 },
+      // Align llmFlags risk with heuristic risk so aggregates reflect correct bucket during basic path
+      llmFlags: { overall_risk_level: (riskAnalysis?.overallRisk || 'low'), confidence: 0.5 },
       llmInsights: { engagement_level: 'medium', main_topics: [] }
     };
 
@@ -270,7 +272,7 @@ export class AdminReporting {
       // Fallback: compute a lightweight distribution from cached session reports
       const fallback = { low: 0, medium: 0, high: 0, crisis: 0 };
       for (const r of this.sessions.values()) {
-        let risk = (r.llmFlags?.overall_risk_level || r.riskAnalysis?.overallRisk || 'low').toString().toLowerCase();
+        let risk = (r.riskAnalysis?.overallRisk || r.llmFlags?.overall_risk_level || 'low').toString().toLowerCase();
         if (!['low','medium','high','crisis'].includes(risk)) risk = 'low';
         fallback[risk] += 1;
       }
@@ -454,6 +456,7 @@ export class AdminReporting {
   }
 
   determineOverallRiskLevel(riskFlags) {
+    if (riskFlags.some(flag => flag.level === 'crisis')) return 'crisis';
     if (riskFlags.some(flag => flag.level === 'high')) return 'high';
     if (riskFlags.some(flag => flag.level === 'medium')) return 'medium';
     if (riskFlags.length > 0) return 'low';
@@ -538,8 +541,8 @@ export class AdminReporting {
 
     let totalDuration = 0;
     for (const r of this.sessions.values()) {
-      // Risk bucket
-      let risk = (r.llmFlags?.overall_risk_level || r.riskAnalysis?.overallRisk || 'low').toString().toLowerCase();
+      // Risk bucket (prefer riskAnalysis; fallback to llmFlags)
+      let risk = (r.riskAnalysis?.overallRisk || r.llmFlags?.overall_risk_level || 'low').toString().toLowerCase();
       if (!['low','medium','high','crisis'].includes(risk)) risk = 'low';
       aggregates.riskLevels[risk] = (aggregates.riskLevels[risk] || 0) + 1;
       if (risk === 'high' || risk === 'crisis') aggregates.crisisInterventions++;

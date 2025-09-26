@@ -28,6 +28,12 @@ export async function postTurn(req, res) {
     return res.status(400).json({ error: 'Invalid sessionId' });
   }
   const session = sessions.get(sessionId);
+  // Persist the user's turn immediately so chat history is retained even if LLM fails
+  try {
+    session.turns = Array.isArray(session.turns) ? session.turns : [];
+    session.turns.push({ role: 'user', text: String(userText || ''), timestamp: new Date().toISOString() });
+    sessions.set(sessionId, session);
+  } catch {}
   const risk = detectRisk(userText);
   if (risk.flag) {
     session.riskFlags.push(risk);

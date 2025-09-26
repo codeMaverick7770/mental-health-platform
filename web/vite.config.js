@@ -6,8 +6,9 @@ export default defineConfig({
   server: {
     proxy: {
       // Backend (DB-backed) counselor sessions
-      '/api/counselor/sessions': { target: 'http://localhost:5000', changeOrigin: true, secure: false },
-      '/api/counselor/session': { target: 'http://localhost:5000', changeOrigin: true, secure: false },
+      // Route counselor session APIs to Voice Assistant service (dev in-memory store)
+      '/api/counselor/sessions': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
+      '/api/counselor/session': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
       // Voice Assistant APIs (admin, counselor, tts, resources, sessions, hooks)
       '/api/admin': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
       '/api/counselor': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
@@ -17,7 +18,8 @@ export default defineConfig({
       '/api/hooks': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
 
       // Main Backend APIs (booking, counsellors)
-      '/api/book': { target: 'http://localhost:5000', changeOrigin: true, secure: false },
+      // Route booking to Voice Assistant proxy which then calls backend
+      '/api/book': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
       '/api/counsellors': { target: 'http://localhost:5000', changeOrigin: true, secure: false }
     }
   }

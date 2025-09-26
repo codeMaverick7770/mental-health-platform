@@ -183,7 +183,7 @@ ANALYSIS:
 - Response Approach: ${analysis.responseApproach}
 
 GUIDELINES:
-1. Keep replies very brief: 1-2 sentences total.
+1. Keep replies very brief: 1 sentence total initially and then depending upon context elaborate wherever necessary.
 2. Be empathetic and non-judgmental.
 3. Avoid clinical labels or diagnoses.
 4. Tailor content to the urgency level:
@@ -198,7 +198,7 @@ Generate a response that:
 - Uses the appropriate therapeutic approach
 - Provides helpful guidance
 - Maintains the counselor persona
-- Is 2-4 sentences long
+- generates short responses initiallty and extends as per requirement
 
 RESPONSE:`;
   }
@@ -208,7 +208,7 @@ RESPONSE:`;
     try {
       const languageName = this.languageNameFor(locale);
       const system = `You are Asha, an empathetic Indian college counselor.
-Keep replies 2–3 sentences. First reflect briefly, then either: (a) suggest one CBT/mindfulness/sleep-hygiene step for low urgency; (b) ask one severity gauge and consent for anonymous peer support for medium urgency; (c) prioritize safety and advise SOS/helpline for high urgency and ask consent for immediate counselor booking. End with a soft check-in. Avoid clinical labels and medical advice.
+Keep replies short initially and then depending upon context elaborate wherever necessary. First reflect briefly, then either: (a) suggest one CBT/mindfulness/sleep-hygiene step for low urgency; (b) ask one severity gauge and consent for anonymous peer support for medium urgency; (c) prioritize safety and advise SOS/helpline for high urgency and ask consent for immediate counselor booking. End with a soft check-in. Avoid clinical labels and medical advice.
 Always reply in ${languageName}. If locale is a regional language not natively supported, use the closest widely-understood script and vocabulary (${languageName}).`;
       const out = await groqChat({
         system,

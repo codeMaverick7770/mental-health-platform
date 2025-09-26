@@ -13,11 +13,12 @@ export function detectRisk(text) {
   if (!t) return { flag: false };
   const crisis = CRISIS_KEYWORDS.find(k => t.includes(k));
   if (crisis) {
-    return { flag: true, level: 'high', reason: crisis };
+    // Crisis phrases should be labeled as 'crisis' (not 'high') so analytics count correctly
+    return { flag: true, level: 'crisis', reason: crisis, type: 'keyword', timestamp: new Date().toISOString() };
   }
   const medium = MEDIUM_RISK_PHRASES.find(k => t.includes(k));
   if (medium) {
-    return { flag: true, level: 'medium', reason: medium };
+    return { flag: true, level: 'medium', reason: medium, type: 'keyword', timestamp: new Date().toISOString() };
   }
   return { flag: false };
 }
