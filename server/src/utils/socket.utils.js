@@ -1,56 +1,40 @@
-import { Server } from "socket.io";
-import Community from "./models/community.model.js";
-import Message from "./models/message.model.js";
+import Community from "../models/community.model.js";
+import Message from "../models/message.model.js";
 
-let io; // will store the socket.io server instance
-
-export const initSocket = (server) => {
-  io = new Server(server, {
-    cors: { origin: process.env.CLIENT_URL || "http://localhost:3000", credentials: true },
-  });
-
+// Attach community chat event handlers to an existing io instance
+export const attachCommunityChatHandlers = (io) => {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
-
     // Join community
     socket.on("joinRoom", ({ communityId }) => {
+      if (!communityId) return;
       socket.join(communityId);
     });
 
     // Leave community
     socket.on("leaveRoom", ({ communityId }) => {
+      if (!communityId) return;
       socket.leave(communityId);
     });
 
-    // Send message
+    // Send message (basic validation and banned check)
     socket.on("sendMessage", async ({ communityId, userId, text }) => {
-      const community = await Community.findById(communityId);
-      if (!community) return;
-      if (community.bannedUsers.includes(userId)) return;
+      try {
+        if (!communityId || !userId || !text) return;
 
-      const message = await Message.create({
-        community: communityId,
-        user: userId,
-        text,
-      });
+        const community = await Community.findById(communityId).select("bannedUsers");
+        if (!community) return;
+        if (community.bannedUsers.some((b) => b.toString() === String(userId))) return;
 
-      io.to(communityId).emit("newMessage", {
-        userId,
-        text,
-        createdAt: message.createdAt,
-      });
-    });
+        const message = await Message.create({ community: communityId, user: userId, text });
 
-    socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
+        io.to(communityId).emit("newMessage", {
+          userId,
+          text,
+          createdAt: message.createdAt,
+        });
+      } catch (_) {
+        // ignore errors in handler to avoid crashing the socket
+      }
     });
   });
-
-  return io;
-};
-
-// optional helper to get the io instance elsewhere
-export const getIO = () => {
-  if (!io) throw new Error("Socket.io not initialized!");
-  return io;
 };

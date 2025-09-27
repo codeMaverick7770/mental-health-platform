@@ -7,10 +7,9 @@ const CommunitySchema = new mongoose.Schema(
 
     college: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "College",
+      ref: "AdminCollege",
       required: true,
     },
-
     members: [
       {
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
