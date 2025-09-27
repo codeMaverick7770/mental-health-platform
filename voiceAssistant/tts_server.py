@@ -23,34 +23,7 @@ app.add_middleware(
 
 
 def detect_lang(segment: str) -> str:
-    # Quick heuristics for script-based detection
-    for ch in segment:
-        # Devanagari => Hindi
-        if '\u0900' <= ch <= '\u097F':
-            return 'hi'
-        # Gurmukhi => Punjabi
-        if '\u0A00' <= ch <= '\u0A7F':
-            return 'pa'
-        # Arabic script ranges (Urdu)
-        if ('\u0600' <= ch <= '\u06FF') or ('\u0750' <= ch <= '\u077F') or ('\u08A0' <= ch <= '\u08FF'):
-            return 'ur'
-    # Token heuristics for Latin transliterations (approx for Hinglish/Urdu/Punjabi/Dogri/Kashmiri)
-    tokens = {t.lower() for t in segment.split()}
-    hinglish_tokens = {"nahi","ha","haan","achha","theek","vaise","kuch","zyada","kam","kaise","kyun","bahut","thoda","sach","galat","dost","parivaar","padhai","imtihan","tension"}
-    roman_urdu_tokens = {"nahi","haan","acha","theek","kaise","kyun","zyada","kam","dost","parivaar","imtihan","khushi","gham","udaas"}
-    roman_punjabi_tokens = {"haan","nahi","theek","ki","kyon","kiven","dost","parivaar","padhai","dil","udaas"}
-    roman_dogri_tokens = {"thare","ki","ke","karna","bada","chhota","kitho","ithe","teth","tension","udaas"}
-    roman_kashmiri_tokens = {"mech","yiman","kyazi","chu","karan","beyi","zyaad","kam","dil","udaas"}
-    if tokens & roman_urdu_tokens:
-        return 'ur'
-    if tokens & roman_punjabi_tokens:
-        return 'pa'
-    if tokens & roman_kashmiri_tokens:
-        return 'ur'  # map Kashmiri to Urdu voices (closest available)
-    if tokens & roman_dogri_tokens:
-        return 'hi'  # map Dogri to Hindi voices (closest available)
-    if tokens & hinglish_tokens:
-        return 'hi'
+    # English-only mode
     return 'en'
 
 
@@ -66,7 +39,7 @@ def build_ssml(
     ur_voice: str | None = None,
     pa_voice: str | None = None,
 ) -> str:
-    # Sentence-level pacing + micro-variations to avoid monotony, with Hindi/English switching
+    # Sentence-level pacing + micro-variations to avoid monotony (English-only)
     raw = text.replace("\n", " ")
     # Split on sentence boundaries conservatively
     import re
@@ -91,19 +64,9 @@ def build_ssml(
             st += 0.0
         rate_pct = f"{int((r-1.0)*100)}%"
         pitch_st = f"{st:+.1f}st"
-        lang = detect_lang(s)
-        if lang == 'hi':
-            vname = hi_voice
-            lang_code = 'hi-IN'
-        elif lang == 'ur':
-            vname = (ur_voice or DEFAULT_UR_VOICE)
-            lang_code = 'ur-PK'
-        elif lang == 'pa':
-            vname = (pa_voice or DEFAULT_PA_VOICE)
-            lang_code = 'pa-IN'
-        else:
-            vname = en_voice
-            lang_code = 'en-IN'
+        # Force English voice only
+        vname = en_voice
+        lang_code = 'en-IN'
         style_attr = f" style='{style}'" if style else ""
         style_degree_attr = (
             f" styledegree='{max(0.01, min(2.0, float(style_degree))):.2f}'" if style_degree else ""
@@ -203,33 +166,18 @@ async def speak(payload: dict = Body(...)):
             print(f"Azure TTS failed, falling back to edge-tts: {e}")
             # Fall through to edge-tts fallback
     
-    # Fallback to edge-tts (pick closest voice by detected language)
+    # Fallback to edge-tts (English-only)
     try:
-        lang = detect_lang(text)
-        if lang == 'hi':
-            fallback_voice = hi_voice
-            target_locale = 'hi-IN'
-        elif lang == 'ur':
-            fallback_voice = ur_voice or DEFAULT_UR_VOICE
-            target_locale = 'ur-PK'
-        elif lang == 'pa':
-            fallback_voice = pa_voice or DEFAULT_PA_VOICE
-            target_locale = 'pa-IN'
-        else:
-            fallback_voice = en_voice
-            target_locale = 'en-IN'
+        fallback_voice = en_voice
+        target_locale = 'en-IN'
 
-        # Verify the voice exists in edge-tts; if not, pick any voice for the target locale,
-        # and if still missing (e.g., Punjabi not available), fall back to Hindi.
+        # Verify the voice exists in edge-tts; if not, pick any English voice
         try:
             voices = await edge_tts.list_voices()
             shortnames = {v.get('ShortName') for v in voices}
             if fallback_voice not in shortnames:
-                # pick first voice matching locale
-                alt = next((v.get('ShortName') for v in voices if v.get('Locale') == target_locale), None)
-                if not alt and target_locale == 'pa-IN':
-                    # Edge sometimes lacks Punjabi voices; fall back to Hindi
-                    alt = next((v.get('ShortName') for v in voices if v.get('Locale') == 'hi-IN'), None)
+                # pick first English voice
+                alt = next((v.get('ShortName') for v in voices if (v.get('Locale') or '').startswith('en-')), None)
                 fallback_voice = alt or fallback_voice
         except Exception:
             pass

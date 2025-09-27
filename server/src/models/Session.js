@@ -56,7 +56,7 @@ const sessionSchema = new mongoose.Schema({
     message: String,
     sender: {
       type: String,
-      enum: ['user', 'counselor', 'system']
+      enum: ['user', 'counselor', 'system', 'assistant']
     },
     timestamp: {
       type: Date,

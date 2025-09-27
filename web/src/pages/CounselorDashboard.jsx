@@ -14,144 +14,6 @@ import {
   X
 } from 'lucide-react';
 
-// Mock data for standalone functionality (populated in catch blocks)
-const mockReports = [
-  {
-    sessionId: "sess_abc1234567",
-    priority: "HIGH",
-    studentInfo: {
-      messageCount: 12,
-      sessionDuration: 35,
-      engagementLevel: "medium"
-    },
-    immediateActions: [
-      {
-        action: "Recommend follow-up session",
-        priority: "MEDIUM",
-        details: "Student expressed mild anxiety.",
-        timeline: "Within 48 hours"
-      }
-    ],
-    riskAssessment: {
-      overallRisk: "high",
-      suicidalIdeation: "low",
-      selfHarmRisk: "low",
-      isolation: "medium",
-      confidence: 0.85
-    },
-    startedAt: new Date(Date.now() - 86400000).toISOString() // yesterday
-  },
-  {
-    sessionId: "sess_def9876543",
-    priority: "CRITICAL",
-    studentInfo: {
-      messageCount: 28,
-      sessionDuration: 75,
-      engagementLevel: "high"
-    },
-    immediateActions: [
-      {
-        action: "Immediate referral to crisis team",
-        priority: "CRITICAL",
-        details: "Expressed suicidal thoughts.",
-        timeline: "Immediate"
-      },
-      {
-        action: "Contact emergency services if needed",
-        priority: "HIGH",
-        details: "",
-        timeline: "ASAP"
-      }
-    ],
-    riskAssessment: {
-      overallRisk: "critical",
-      suicidalIdeation: "high",
-      selfHarmRisk: "high",
-      isolation: "high",
-      confidence: 0.3
-    },
-    startedAt: new Date().toISOString() // today
-  },
-  {
-    sessionId: "sess_ghi11223344",
-    priority: "MEDIUM",
-    studentInfo: {
-      messageCount: 8,
-      sessionDuration: 20,
-      engagementLevel: "low"
-    },
-    immediateActions: [],
-    riskAssessment: {
-      overallRisk: "medium",
-      suicidalIdeation: "none",
-      selfHarmRisk: "low",
-      isolation: "low",
-      confidence: 0.95
-    },
-    startedAt: new Date(Date.now() - 2 * 86400000).toISOString() // 2 days ago
-  },
-  {
-    sessionId: "sess_jkl55667788",
-    priority: "LOW",
-    studentInfo: {
-      messageCount: 5,
-      sessionDuration: 10,
-      engagementLevel: "low"
-    },
-    immediateActions: [],
-    riskAssessment: {
-      overallRisk: "low",
-      suicidalIdeation: "none",
-      selfHarmRisk: "none",
-      isolation: "low",
-      confidence: 0.98
-    },
-    startedAt: new Date().toISOString() // today
-  }
-];
-
-const mockEvents = [
-  {
-    sessionId: "sess_def9876543",
-    riskLevel: "high",
-    type: "sos"
-  },
-  {
-    sessionId: "sess_abc1234567",
-    riskLevel: "medium",
-    type: "alert"
-  }
-];
-
-const mockModal = {
-  sessionId: "",
-  studentInfo: {
-    sessionDuration: 45,
-    messageCount: 18,
-    engagementLevel: "medium"
-  },
-  riskAssessment: {
-    overallRisk: "medium",
-    suicidalIdeation: "low",
-    selfHarmRisk: "medium",
-    isolation: "low",
-    confidence: 0.75
-  },
-  immediateActions: [
-    {
-      priority: "HIGH",
-      action: "Schedule urgent follow-up",
-      details: "Monitor for escalation.",
-      timeline: "Within 24 hours"
-    },
-    {
-      priority: "MEDIUM",
-      action: "Provide resources",
-      details: "Share coping strategies.",
-      timeline: "Immediate"
-    }
-  ]
-};
 
 export default function CounselorDashboard() {
   const navigate = useNavigate();
@@ -164,7 +26,7 @@ export default function CounselorDashboard() {
   const [bookedSessions, setBookedSessions] = useState(new Set());
 
   async function refresh() {
-    const r = await fetch('/api/counselor/reports?limit=50')
+    const r = await fetch('/api/counselor/reports?limit=100')
       .then(r => r.json()).catch(() => ({ reports: [] }));
     setReports(r.reports || []);
     // alerts fetch removed
@@ -187,11 +49,7 @@ export default function CounselorDashboard() {
       setBookedSessions(bookedSessionIds);
     } catch (error) {
       console.error('Failed to fetch booked sessions:', error);
-      // Fallback: check if any reports have bookingNeeded: false (indicating they're booked)
-      const bookedFromReports = new Set(
-        list.filter(rep => rep.bookingNeeded === false).map(rep => rep.sessionId)
-      );
-      setBookedSessions(bookedFromReports);
+      // On failure, keep previous bookedSessions state (no fallback to mock heuristics)
     }
   }
   useEffect(() => { refresh(); const t = setInterval(refresh, 30000); return () => clearInterval(t); }, []);
@@ -206,8 +64,8 @@ export default function CounselorDashboard() {
       const bookingNeeded = data?.bookingNeeded ?? (overall === 'high' || overall === 'critical' || pri === 'CRITICAL');
       setModal({ ...data, sessionId, bookingNeeded });
     } catch (e) {
-      // Fallback to mock modal if API fails
-      setModal({ ...mockModal, sessionId });
+      console.error('Failed to load report', e);
+      alert('Failed to load report. Please try again.');
     }
   }
 
@@ -262,11 +120,9 @@ export default function CounselorDashboard() {
         });
       } catch {}
 
-      // Navigate to My Sessions for counselor to proceed
-      try { navigate('/counselor-sessions'); } catch {}
-
+      // Stay on dashboard; do not auto-navigate or auto-close modal
       setBookingBusy(false);
-      setModal(null);
+      setModal(prev => prev ? { ...prev, bookingNeeded: false } : prev);
     } catch (e) {
       alert(`Admin booking error: ${e?.message || e}`);
       setBookingBusy(false);
@@ -321,6 +177,9 @@ export default function CounselorDashboard() {
               const displayText = priorityUpper === 'CRITICAL' ? 'CRITICAL' : (level || 'low').toString().toUpperCase();
               const bookingNeeded = Boolean(rep.bookingNeeded);
               const isBooked = bookedSessions.has(rep.sessionId);
+              // Show "Booking Needed" for medium, high, critical cases OR if explicitly marked as needing booking
+              const priorityNeedsBooking = ['medium', 'high', 'crisis'].includes(level) || priorityUpper === 'CRITICAL';
+              const effectiveBookingNeeded = (bookingNeeded || priorityNeedsBooking) && !isBooked;
               const cardAccent = level === 'crisis' ? 'border-red-300' : level === 'high' ? 'border-orange-300' : level === 'medium' ? 'border-yellow-300' : 'border-green-300';
               const riskPill = level === 'crisis' ? 'bg-red-100 text-red-700 border-red-300' :
                 level === 'high' ? 'bg-orange-100 text-orange-700 border-orange-300' :
@@ -347,9 +206,17 @@ export default function CounselorDashboard() {
                       </ul>
                     </div>
                   )}
-                  {bookingNeeded && (
+                  {effectiveBookingNeeded && (
                     <div className="mt-2">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700 border border-rose-200">Booking needed</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        level === 'crisis' || priorityUpper === 'CRITICAL' 
+                          ? 'bg-red-100 text-red-700 border-red-300 animate-pulse' 
+                          : level === 'high' 
+                          ? 'bg-orange-100 text-orange-700 border-orange-300' 
+                          : 'bg-amber-100 text-amber-700 border-amber-300'
+                      }`}>
+                        {level === 'crisis' || priorityUpper === 'CRITICAL' ? '🚨 URGENT BOOKING' : 'Booking needed'}
+                      </span>
                     </div>
                   )}
                 </button>
@@ -389,7 +256,35 @@ export default function CounselorDashboard() {
                       <span className="text-blue-600 font-medium">Engagement Level</span>
                       <span className="font-semibold text-green-600 capitalize px-2 py-1 bg-green-100 rounded-full text-xs">{modal.studentInfo?.engagementLevel || 'medium'}</span>
                     </div>
+                    {modal.studentInfo?.previousSessions !== undefined && (
+                      <div className="flex justify-between items-center py-3">
+                        <span className="text-blue-600 font-medium">Previous Sessions</span>
+                        <span className="font-semibold text-blue-900">{modal.studentInfo.previousSessions}</span>
+                      </div>
+                    )}
                   </div>
+
+                  {modal.studentInfo?.primaryConcerns && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold text-blue-800 mb-2">Primary Concerns</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {modal.studentInfo.primaryConcerns.map((concern, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{concern}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {modal.studentInfo?.identifiedStrengths && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold text-blue-800 mb-2">Identified Strengths</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {modal.studentInfo.identifiedStrengths.map((strength, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{strength}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200 shadow-sm">
                   <h3 className="font-bold text-lg text-purple-800 mb-4 flex items-center gap-2"><ShieldAlert className="w-5 h-5" /> Risk Assessment</h3>
@@ -405,20 +300,26 @@ export default function CounselorDashboard() {
                         {modal.riskAssessment?.overallRisk || 'medium'}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-3">
-                      <span className="text-purple-600 font-medium">Suicidal Ideation</span>
-                      <span className="font-semibold text-purple-900 capitalize">{modal.riskAssessment?.suicidalIdeation || 'N/A'}</span>
+                    <div className="py-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-purple-600 font-medium">Suicidal Ideation</span>
+                      </div>
+                      <span className="text-purple-900 text-xs bg-purple-50 px-2 py-1 rounded">{modal.riskAssessment?.suicidalIdeation || 'N/A'}</span>
+                    </div>
+                    <div className="py-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-purple-600 font-medium">Self-Harm Risk</span>
+                      </div>
+                      <span className="text-purple-900 text-xs bg-purple-50 px-2 py-1 rounded">{modal.riskAssessment?.selfHarmRisk || 'N/A'}</span>
+                    </div>
+                    <div className="py-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-purple-600 font-medium">Isolation Level</span>
+                      </div>
+                      <span className="text-purple-900 text-xs bg-purple-50 px-2 py-1 rounded">{modal.riskAssessment?.isolation || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between items-center py-3">
-                      <span className="text-purple-600 font-medium">Self-Harm Risk</span>
-                      <span className="font-semibold text-purple-900 capitalize">{modal.riskAssessment?.selfHarmRisk || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3">
-                      <span className="text-purple-600 font-medium">Isolation Level</span>
-                      <span className="font-semibold text-purple-900 capitalize">{modal.riskAssessment?.isolation || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3">
-                      <span className="text-purple-600 font-medium">Confidence Score</span>
+                      <span className="text-purple-600 font-medium">Assessment Confidence</span>
                       <div className="flex items-center gap-3">
                         <div className="w-20 bg-gray-200 rounded-full h-2 shadow-inner overflow-hidden">
                           <div 
@@ -430,40 +331,153 @@ export default function CounselorDashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {modal.riskAssessment?.riskFactors && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold text-purple-800 mb-2">Risk Factors</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {modal.riskAssessment.riskFactors.map((factor, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{factor}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {modal.riskAssessment?.protectiveFactors && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold text-purple-800 mb-2">Protective Factors</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {modal.riskAssessment.protectiveFactors.map((factor, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{factor}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+            </section>
+
+            {/* Clinical Notes Section */}
+            {modal.clinicalNotes && (
+              <section className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200 shadow-sm">
+                <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" /> Clinical Assessment
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-2">Presenting Issue</h4>
+                    <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border">{modal.clinicalNotes.presentingIssue}</p>
+                  </div>
+                  
+                  {modal.clinicalNotes.mentalStatusExam && (
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">Mental Status Exam</h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="bg-white p-2 rounded border">
+                          <span className="font-medium text-gray-600">Mood:</span>
+                          <span className="ml-2 text-gray-800">{modal.clinicalNotes.mentalStatusExam.mood}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded border">
+                          <span className="font-medium text-gray-600">Affect:</span>
+                          <span className="ml-2 text-gray-800">{modal.clinicalNotes.mentalStatusExam.affect}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded border">
+                          <span className="font-medium text-gray-600">Thought:</span>
+                          <span className="ml-2 text-gray-800">{modal.clinicalNotes.mentalStatusExam.thought}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded border">
+                          <span className="font-medium text-gray-600">Insight:</span>
+                          <span className="ml-2 text-gray-800">{modal.clinicalNotes.mentalStatusExam.insight}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
+            )}
 
-              {/* Admin Booking section based on server flag */}
-              {(modal?.bookingNeeded === true) && (
-                <section className="mt-4" id="admin-booking-section">
-                  <div className="font-semibold mb-2">Admin Booking</div>
-                  {bookedSessions.has(modal?.sessionId) ? (
-                    <div className="text-sm text-gray-600 bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-600">✅</span>
-                        <span className="text-green-700 font-medium">Session is already booked</span>
+            {/* Enhanced Immediate Actions */}
+            {modal.immediateActions && modal.immediateActions.length > 0 && (
+              <section className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-6 border border-red-200 shadow-sm">
+                <h3 className="font-bold text-lg text-red-800 mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" /> Immediate Actions Required
+                </h3>
+                
+                <div className="space-y-3">
+                  {modal.immediateActions.map((action, idx) => (
+                    <div key={idx} className={`p-4 rounded-lg border-l-4 ${
+                      action.priority === 'Critical' ? 'bg-red-100 border-red-500' :
+                      action.priority === 'High' ? 'bg-orange-100 border-orange-500' :
+                      'bg-yellow-100 border-yellow-500'
+                    }`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-semibold text-gray-800">{action.action}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          action.priority === 'Critical' ? 'bg-red-200 text-red-800' :
+                          action.priority === 'High' ? 'bg-orange-200 text-orange-800' :
+                          'bg-yellow-200 text-yellow-800'
+                        }`}>
+                          {action.priority}
+                        </span>
                       </div>
-                      <div className="text-green-600 text-xs mt-1">This session has been assigned to a counselor and is ready for counseling.</div>
+                      <p className="text-sm text-gray-700 mb-2">{action.details}</p>
+                      <div className="text-xs text-gray-600">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        Timeline: <span className="font-medium">{action.timeline}</span>
+                      </div>
                     </div>
-                  ) : (
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Conversation Summary */}
+            {modal.conversationSummary && modal.conversationSummary !== 'No conversation data available' && (
+              <section className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl p-6 border border-indigo-200 shadow-sm">
+                <h3 className="font-bold text-lg text-indigo-800 mb-4 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" /> Conversation Summary
+                </h3>
+                <div className="bg-white p-4 rounded-lg border text-sm text-gray-700 whitespace-pre-line">
+                  {modal.conversationSummary}
+                </div>
+              </section>
+            )}
+
+            <section className="mt-4" id="admin-booking-section">
+                <div className="font-semibold mb-2">
+                    Admin Booking
+                    {modal?.bookingNeeded === true && (
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                            Recommended
+                        </span>
+                    )}
+                </div>
+                {bookedSessions.has(modal?.sessionId) ? (
+                    <div className="text-sm text-gray-600 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-green-600">✅</span>
+                            <span className="text-green-700 font-medium">Session is already booked</span>
+                        </div>
+                        <div className="text-green-600 text-xs mt-1">This session has been assigned to a counselor and is ready for counseling.</div>
+                    </div>
+                ) : (
                     <>
-                      <div className="text-sm text-gray-600">Automatically assigns counselor and earliest slot based on availability.</div>
-                      <div className="mt-3">
-                        <button
-                          onClick={submitAdminBooking}
-                          disabled={bookingBusy}
-                          className={`px-4 py-2 rounded ${bookingBusy ? 'bg-gray-400' : 'bg-teal-600 hover:bg-teal-700'} text-white`}
-                        >
-                          {bookingBusy ? 'Booking…' : 'Book via Admin'}
-                        </button>
-                      </div>
+                        <div className="text-sm text-gray-600">Automatically assigns counselor and earliest slot based on availability.</div>
+                        <div className="mt-3">
+                            <button
+                                onClick={submitAdminBooking}
+                                disabled={bookingBusy}
+                                className={`px-4 py-2 rounded ${bookingBusy ? 'bg-gray-400' : 'bg-teal-600 hover:bg-teal-700'} text-white`}
+                            >
+                                {bookingBusy ? 'Booking…' : 'Book via Admin'}
+                            </button>
+                        </div>
                     </>
-                  )}
-                </section>
-              )}
-            </div>
+                )}
+            </section>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

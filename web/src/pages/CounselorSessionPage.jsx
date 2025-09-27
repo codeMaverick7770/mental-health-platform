@@ -32,7 +32,20 @@ export default function CounselorSessionPage() {
       const response = await fetch(`/api/counselor/session/${sessionId}`);
       const data = await response.json();
       setActiveSession(data);
-      setMessages(data.messages || []);
+      
+      // Deduplicate messages based on content, sender, and timestamp
+      const uniqueMessages = [];
+      const seen = new Set();
+      
+      (data.messages || []).forEach(msg => {
+        const key = `${msg.message}-${msg.sender}-${new Date(msg.timestamp).getTime()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueMessages.push(msg);
+        }
+      });
+      
+      setMessages(uniqueMessages);
       setSessionNotes(data.notes || '');
     } catch (error) {
       console.error('Failed to load session:', error);
@@ -207,9 +220,9 @@ export default function CounselorSessionPage() {
                       No messages yet. Start the conversation!
                     </div>
                   ) : (
-                    messages.map(msg => (
+                    messages.map((msg, index) => (
                       <div
-                        key={msg.id}
+                        key={`${msg.timestamp}-${index}-${msg.sender}`}
                         className={`flex ${msg.sender === 'counselor' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
