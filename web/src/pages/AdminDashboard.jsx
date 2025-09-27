@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Users as FiUsers,
   Activity as FiActivity,
@@ -12,368 +12,554 @@ import {
   Zap as FiZap,
   Eye as FiEye
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 
 function StatCard({ label, value, accent, icon: Icon }) {
   return (
-    <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-gray-50 shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-gray-200">
-      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-teal-50 to-emerald-50 rounded-full -translate-y-10 translate-x-10 opacity-60"></div>
-      <div className="relative">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-medium text-gray-600">{label}</div>
-          {Icon && <Icon className="w-5 h-5 text-gray-400 group-hover:text-teal-500 transition-colors" />}
+    <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white to-gray-50 shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-gray-200 cursor-pointer">
+      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-teal-50 to-emerald-50 rounded-full -translate-y-10 translate-x-10 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm font-semibold text-gray-700 tracking-wide">{label}</div>
+          {Icon && <Icon className="w-6 h-6 text-gray-400 group-hover:text-teal-600 transition-all duration-300 transform group-hover:scale-110" />}
         </div>
-        <div className="text-3xl font-bold tracking-tight">
-        <span className={accent}>{value}</span>
+        <div className="text-4xl font-black tracking-tight leading-tight">
+          <span className={accent}>{value}</span>
         </div>
       </div>
     </div>
   );
 }
 
-function BarMini({ value, max = 1 }) {
-  const pct = Math.min(100, Math.round((value / (max || 1)) * 100));
-  return (
-    <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden shadow-inner">
-      <div 
-        className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-500 ease-out" 
-        style={{ width: `${pct}%` }} 
-      />
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
   const [overview, setOverview] = useState(null);
-  const [risk, setRisk] = useState({});
-  const [sessions, setSessions] = useState([]);
-  const [events, setEvents] = useState([]);
+  const [risk, setRisk] = useState({
+    low: 0,
+    medium: 0,
+    high: 0,
+    crisis: 0
+  });
   const [heatmap, setHeatmap] = useState([]);
   const [commonIssues, setCommonIssues] = useState([]);
   const [emotionalPatterns, setEmotionalPatterns] = useState([]);
   const [mainTopics, setMainTopics] = useState([]);
   const [copingStrategies, setCopingStrategies] = useState([]);
   const [stressTrend, setStressTrend] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [events, setEvents] = useState([]);
+
+  // Always use mock for self-contained demo
+  const USE_MOCK = true;
 
   async function refresh() {
-    const [d, s, a] = await Promise.all([
-      fetch('/api/admin/dashboard').then(r => r.json()).catch(() => null),
-      fetch('/api/admin/sessions?limit=20').then(r => r.json()).catch(() => ({ sessions: [] })),
-      fetch('/api/admin/alerts').then(r => r.json()).catch(() => ({ alerts: [], realtime: [] })),
-    ]);
-    setOverview(d?.overview || null);
-    setRisk(d?.riskDistribution || {});
-    setHeatmap(d?.heatmap || []);
-    setCommonIssues(d?.commonIssues || []);
-    setEmotionalPatterns(d?.emotionalPatterns || []);
-    setMainTopics(d?.mainTopics || []);
-    setCopingStrategies(d?.copingStrategies || []);
-    setStressTrend(d?.stressTrend || []);
-    setSessions(s?.sessions || []);
-    setEvents(a?.realtime || []);
-  }
-  useEffect(() => { refresh(); const t = setInterval(refresh, 30000); return () => clearInterval(t); }, []);
-
-  const riskMax = useMemo(() => {
-    const vals = Object.values(risk);
-    return vals.length ? Math.max(...vals) : 1;
-  }, [risk]);
-
-  const eventRiskBySessionId = useMemo(() => {
-    const rank = { low: 0, medium: 1, high: 2, crisis: 3 };
-    const map = {};
-    (events || []).forEach(ev => {
-      const sid = ev?.sessionId;
-      if (!sid) return;
-      let r = (ev?.riskLevel || '').toString().toLowerCase();
-      if (ev?.type === 'sos') r = 'crisis';
-      if (!r) return;
-      const curr = map[sid];
-      if (!curr || (rank[r] || 0) > (rank[curr] || 0)) {
-        map[sid] = r;
-      }
+    // Enhanced mock data with realistic values and structures for charts
+    setOverview({
+      totalSessions: 1247,
+      activeUsers: 342,
+      crisisInterventions: 23,
+      averageSessionDuration: 24.5,
+      insightsSource: 'Simulated Analytics'
     });
-    return map;
-  }, [events]);
+
+    setRisk({
+      low: 856,
+      medium: 312,
+      high: 67,
+      crisis: 12
+    });
+
+    // 30-day heatmap data
+    const now = new Date();
+    const heatmapData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 86400000);
+      const dateStr = date.toISOString().split('T')[0];
+      heatmapData.push({
+        date: dateStr,
+        total: Math.floor(Math.random() * 50 + 20),
+        medium: Math.floor(Math.random() * 15 + 5),
+        high: Math.floor(Math.random() * 8),
+        crisis: Math.random() < 0.03 ? 1 : 0
+      });
+    }
+    setHeatmap(heatmapData);
+
+    // Metric data as objects for Recharts
+    setCommonIssues([
+      { name: 'Academic Pressure', value: 285 },
+      { name: 'Anxiety & Worry', value: 214 },
+      { name: 'Family Conflicts', value: 156 },
+      { name: 'Relationship Issues', value: 123 },
+      { name: 'Sleep Disturbances', value: 98 },
+      { name: 'Low Self-Esteem', value: 76 }
+    ]);
+
+    setEmotionalPatterns([
+      { name: 'Anxiety', value: 312 },
+      { name: 'Sadness', value: 245 },
+      { name: 'Stress', value: 456 },
+      { name: 'Anger', value: 187 },
+      { name: 'Hope/Relief', value: 89 }
+    ]);
+
+    setMainTopics([
+      { name: 'School & Studies', value: 456 },
+      { name: 'Family Dynamics', value: 321 },
+      { name: 'Peer Relationships', value: 298 },
+      { name: 'Career Worries', value: 234 },
+      { name: 'Physical Health', value: 167 }
+    ]);
+
+    setCopingStrategies([
+      { name: 'Talking to Friends', value: 412 },
+      { name: 'Physical Exercise', value: 356 },
+      { name: 'Music & Relaxation', value: 289 },
+      { name: 'Journaling Thoughts', value: 198 },
+      { name: 'Breathing Exercises', value: 145 }
+    ]);
+
+    // 30-day stress trend
+    const trendData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 86400000).toLocaleDateString();
+      trendData.push({
+        date,
+        avgStress: Number(((4 + Math.random() * 6) * 10).toFixed(1)),
+        sessions: Math.floor(Math.random() * 45 + 15)
+      });
+    }
+    setStressTrend(trendData);
+
+    // 25 mock sessions
+    const nowDate = new Date();
+    const sessionData = Array.from({ length: 25 }, (_, i) => ({
+      id: `session-${String(i + 1).padStart(3, '0')}`,
+      startedAt: new Date(nowDate.getTime() - Math.random() * 30 * 86400000),
+      turns: Math.floor(Math.random() * 60 + 5),
+      riskLevel: ['low', 'medium', 'high', 'crisis'][Math.floor(Math.random() * 4)]
+    }));
+    setSessions(sessionData);
+
+    // Initial events
+    setEvents([
+      {
+        type: 'sos',
+        sessionId: 'session-012',
+        message: 'Emergency SOS activated - reports of self-harm ideation',
+        riskLevel: 'crisis'
+      },
+      {
+        type: 'insight',
+        sessionId: 'session-045',
+        message: 'High anxiety patterns detected during exam discussion',
+        riskLevel: 'high'
+      },
+      {
+        type: 'insight',
+        sessionId: 'session-089',
+        message: 'Positive copes strategy shift to exercise mentioned',
+        riskLevel: 'medium'
+      }
+    ]);
+  }
+
+  useEffect(() => {
+    refresh();
+    const interval = setInterval(refresh, 30000); // Auto-refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Simulate realtime events (add new every 8s, keep last 20)
+  useEffect(() => {
+    if (!USE_MOCK) return;
+
+    const simInterval = setInterval(() => {
+      const newEvent = {
+        type: Math.random() > 0.8 ? 'sos' : 'insight',
+        sessionId: `session-${Math.floor(Math.random() * 100 + 1).toString().padStart(3, '0')}`,
+        message:
+          Math.random() > 0.7
+            ? 'Reported acute distress - immediate counselor notification recommended'
+            : 'Elevated stress indicators in conversation about family issues',
+        riskLevel: Math.random() > 0.6 ? 'high' : 'medium'
+      };
+      setEvents((prev) => [newEvent, ...prev].slice(0, 20));
+    }, 8000);
+
+    return () => clearInterval(simInterval);
+  }, []);
+
+  // Memoized data for charts
+  const riskData = useMemo(
+    () =>
+      Object.entries(risk).map(([key, value]) => ({
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        value
+      })),
+    [risk]
+  );
+
+  const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#F97316'];
+
+  const currentTime = new Date().toLocaleString();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
-          <div className="text-center md:text-left">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-              Mental Health Analytics Dashboard
-            </h1>
-            <p className="text-gray-600 text-lg">Real-time insights and monitoring</p>
-            {overview?.insightsSource && (
-              <div className="mt-2 inline-flex items-center gap-2 text-sm">
-                <span className="px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-700">
-                  Insights source: <strong className="ml-1">{overview.insightsSource}</strong>
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3 self-center md:self-auto">
+
+        {/* Enhanced Header */}
+        <header className="text-center md:text-left space-y-6">
+          <h1 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-purple-600 via-pink-600 to-emerald-600 bg-clip-text text-transparent tracking-tight leading-tight">
+            Student Wellness Monitor
+          </h1>
+          <p className="text-xl text-gray-700 max-w-3xl mx-auto md:mx-0 leading-relaxed">
+            Advanced real-time analytics dashboard providing deep insights into student mental health trends, risk assessments, and proactive intervention opportunities for administrators and counselors.
+          </p>
+          <div className="flex flex-wrap justify-center md:justify-start items-center gap-4">
             <button
               onClick={refresh}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow hover:shadow-md hover:brightness-105 active:scale-[.99] transition"
-              title="Refresh dashboard now"
-            >Refresh</button>
-            <span className="text-xs text-gray-500">Auto-refreshes every 30s</span>
+              className="px-8 py-4 rounded-full bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2"
+            >
+              🔄 Refresh Insights
+            </button>
+            <div className="bg-white/80 backdrop-blur-md px-6 py-3 rounded-full border border-gray-200 shadow-lg">
+              <span className="text-sm font-medium text-gray-700">Updated: </span>
+              <span className="font-bold text-gray-900">{currentTime}</span>
+            </div>
+            <div className="text-sm font-semibold text-emerald-700 bg-emerald-100/80 px-4 py-2 rounded-full border border-emerald-200">
+              🌟 LIVE MONITORING • Auto-updates every 30 seconds
+            </div>
           </div>
-        </div>
+          {overview?.insightsSource && (
+            <div className="text-center md:text-left mt-4">
+              <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-purple-800 rounded-full border border-purple-200 text-sm font-medium">
+                📊 Data Source: <strong>{overview.insightsSource}</strong>
+              </span>
+            </div>
+          )}
+        </header>
 
-        {/* Stats Cards */}
-        <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Key Metrics Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard 
             label="Total Sessions" 
-            value={overview?.totalSessions || 0} 
-            accent="text-teal-600" 
-            icon={FiUsers}
-          />
-          <StatCard 
-            label="Active Users" 
-            value={overview?.activeUsers || 0} 
+            value={(overview?.totalSessions || 0).toLocaleString()} 
             accent="text-emerald-600" 
-            icon={FiActivity}
+            icon={FiUsers} 
           />
           <StatCard 
-            label="Crisis Interventions" 
-            value={overview?.crisisInterventions || 0} 
+            label="Active Students" 
+            value={(overview?.activeUsers || 0).toLocaleString()} 
+            accent="text-purple-600" 
+            icon={FiActivity} 
+          />
+          <StatCard 
+            label="Urgent Interventions" 
+            value={(overview?.crisisInterventions || 0).toLocaleString()} 
             accent="text-red-600" 
-            icon={FiAlertTriangle}
+            icon={FiAlertTriangle} 
           />
           <StatCard 
-            label="Avg Duration (min)" 
-            value={overview?.averageSessionDuration || 0} 
-            accent="text-indigo-600" 
-            icon={FiClock}
+            label="Avg Session Duration" 
+            value={`${(overview?.averageSessionDuration || 0).toFixed(1)} min`} 
+            accent="text-blue-600" 
+            icon={FiClock} 
           />
-      </section>
+        </section>
 
-        {/* Risk Distribution & Heatmap */}
-        <section className="grid lg:grid-cols-2 gap-6">
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-xl">
-                <FiBarChart3 className="w-6 h-6 text-teal-600" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">Risk Distribution</h2>
+        {/* Main 30-Day Trend Chart */}
+        <section className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 md:p-10">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+            <div>
+              <h2 className="text-3xl font-black text-gray-800 mb-2 flex items-center gap-3">
+                <FiTrendingUp className="w-10 h-10 text-indigo-600" />
+                30-Day Activity & Risk Trends
+              </h2>
+              <p className="text-lg text-gray-600 max-w-md">Comprehensive view of session volume and escalating risk levels over time</p>
             </div>
-            <div className="space-y-4">
-              {Object.entries(risk).map(([k, v]) => {
-                const riskColors = {
-                  low: 'text-emerald-600',
-                  medium: 'text-amber-600', 
-                  high: 'text-orange-600',
-                  crisis: 'text-red-600'
-                };
-                return (
-                  <div key={k} className="bg-gray-50 rounded-2xl p-4 hover:bg-gray-100 transition-colors">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className={`capitalize font-semibold ${riskColors[k] || 'text-gray-600'}`}>{k}</span>
-                      <span className="font-bold text-lg">{v}</span>
-                </div>
-                <BarMini value={v} max={riskMax} />
-              </div>
-                );
-              })}
+            <div className="flex flex-wrap gap-3 justify-center lg:justify-end">
+              <span className="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-full text-sm font-semibold">📈 Total Sessions</span>
+              <span className="px-4 py-2 bg-amber-100 text-amber-800 rounded-full text-sm font-semibold">⚠️ Medium Risk</span>
+              <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full text-sm font-semibold">🚨 High/Crisis</span>
+            </div>
           </div>
-        </div>
+          <ResponsiveContainer width="100%" height={450}>
+            <LineChart data={heatmap} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="5 5" stroke="#f1f5f9" />
+              <XAxis dataKey="date" angle={-45} textAnchor="end" height={80} interval={Math.floor(30 / 7)} tickFormatter={(value) => value.slice(5)} />
+              <YAxis />
+              <Tooltip labelFormatter={(label) => `Date: ${label}`} />
+              <Legend />
+              <Line type="monotone" dataKey="total" stroke="#10B981" strokeWidth={4} activeDot={{ r: 10, style: { fill: '#10B981', opacity: 1 } }} />
+              <Line type="monotone" dataKey="medium" stroke="#F59E0B" strokeWidth={3} activeDot={{ r: 8 }} />
+              <Line type="monotone" dataKey="high" name="High/Crisis" stroke="#EF4444" strokeWidth={4} dot={false} activeDot={{ r: 12 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
 
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl">
-                <FiTrendingUp className="w-6 h-6 text-purple-600" />
+        {/* Risk Pie & Stress Area Dual */}
+        <section className="grid lg:grid-cols-2 gap-8">
+          {/* Risk Distribution Pie */}
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-4 bg-gradient-to-br from-red-100/80 to-yellow-100/80 rounded-2xl border border-red-200/50">
+                <FiShield className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">28-Day Activity Heatmap</h2>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">Current Risk Distribution</h2>
+                <p className="text-gray-600">Breakdown of student risk levels across all active sessions</p>
+              </div>
             </div>
-            <div className="grid grid-cols-14 gap-1.5">
-            {heatmap.map((d, i) => {
-              const high = (d.high || 0) + (d.crisis || 0);
-              const medium = d.medium || 0;
-              const total = d.total || 0;
-                const color = total === 0 ? 'bg-gray-100' : 
-                  high > 0 ? 'bg-gradient-to-br from-red-400 to-red-500 shadow-sm' : 
-                  medium > 0 ? 'bg-gradient-to-br from-amber-400 to-orange-400 shadow-sm' : 
-                  'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-sm';
-                return (
-                  <div 
-                    key={i} 
-                    className={`w-5 h-5 rounded-lg ${color} hover:scale-110 transition-transform cursor-pointer`} 
-                    title={`${d.date}: total ${total}, H:${d.high}/C:${d.crisis}`} 
-                  />
-                );
-            })}
+            <ResponsiveContainer width="100%" height={380}>
+              <PieChart>
+                <Pie
+                  data={riskData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={140}
+                  dataKey="value"
+                  nameKey="name"
+                >
+                  {riskData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-        </div>
-      </section>
 
-        {/* Common Issues & Stress Trend */}
-        <section className="grid lg:grid-cols-2 gap-6">
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-rose-100 to-pink-100 rounded-xl">
-                <FiAlertTriangle className="w-6 h-6 text-rose-600" />
+          {/* Stress Trend Area Chart */}
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-4 bg-gradient-to-br from-purple-100/80 to-pink-100/80 rounded-2xl border border-purple-200/50">
+                <FiBarChart3 className="w-8 h-8 text-purple-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Common Issues</h2>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">Daily Stress Level Trends</h2>
+                <p className="text-gray-600">Average stress scores (0-10 scale) with session volume overlay</p>
+              </div>
             </div>
-            <div className="space-y-3">
-              {(commonIssues || []).slice(0, 5).map(([issue, count], idx) => (
-                <div key={issue} className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl px-4 py-3 hover:from-teal-50 hover:to-emerald-50 transition-all duration-200">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${
-                      idx === 0 ? 'bg-red-500' :
-                      idx === 1 ? 'bg-orange-500' :
-                      idx === 2 ? 'bg-amber-500' :
-                      'bg-gray-400'
-                    }`}></div>
-                    <span className="font-medium text-gray-700">{issue}</span>
-                  </div>
-                  <span className="font-bold text-lg text-gray-800 bg-white px-3 py-1 rounded-full shadow-sm">{count}</span>
+            <ResponsiveContainer width="100%" height={380}>
+              <AreaChart data={stressTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="stressGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EC4899" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#FECDD3" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" angle={-45} textAnchor="end" height={80} interval={Math.floor(30 / 7)} tickFormatter={(value) => value.slice(0, 5)} />
+                <YAxis unit=" /10" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" />
+                <Tooltip />
+                <Area type="monotone" dataKey="avgStress" stroke="#EC4899" strokeWidth={3} fillOpacity={1} fill="url(#stressGradient)" activeDot={{ r: 10 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        {/* Common Issues Bar & Emotional Pie Dual */}
+        <section className="grid lg:grid-cols-2 gap-8">
+          {/* Common Issues Horizontal Bar */}
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-4 bg-gradient-to-br from-amber-100/80 to-orange-100/80 rounded-2xl border border-amber-200/50">
+                <FiAlertTriangle className="w-8 h-8 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">Top 6 Reported Issues</h2>
+                <p className="text-gray-600">Frequency of mental health concerns from recent sessions</p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart layout="vertical" data={commonIssues} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" />
+                <YAxis dataKey="name" type="category" width={180} tick={{ fontSize: 12, fill: '#374151' }} />
+                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="value">
+                  {commonIssues.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Emotional Patterns Pie + List */}
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 space-y-8">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-4 bg-gradient-to-br from-pink-100/80 to-rose-100/80 rounded-2xl border border-pink-200/50">
+                <FiHeart className="w-8 h-8 text-pink-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">Dominant Emotions</h2>
+                <p className="text-gray-600">Emotional patterns identified in conversations</p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={emotionalPatterns}
+                  cx="50%"
+                  cy="50%"
+                  startAngle={180}
+                  endAngle={0}
+                  outerRadius={90}
+                  innerRadius={40}
+                  dataKey="value"
+                  nameKey="name"
+                  labelLine={false}
+                  label
+                >
+                  {emotionalPatterns.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            {/* Quick Interactive List */}
+            <div className="grid grid-cols-1 gap-3">
+              {emotionalPatterns.slice(0, 4).map((pattern, idx) => (
+                <div
+                  key={pattern.name}
+                  className="group flex justify-between items-center p-4 bg-gradient-to-r from-gray-50 to-white/0 rounded-2xl hover:from-indigo-50 hover:to-purple-50 transition-all duration-300 cursor-pointer border border-gray-200 hover:border-indigo-300"
+                >
+                  <span className="font-semibold text-gray-800 flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full bg-${COLORS[idx % COLORS.length].replace('#', '')}`} /> 
+                    {pattern.name}
+                  </span>
+                  <span className="font-black text-2xl text-gray-900 group-hover:text-indigo-600 transition-colors">{pattern.value}</span>
                 </div>
               ))}
-              {(!commonIssues || commonIssues.length === 0) && (
-                <div className="text-center text-gray-500 py-8">No data available</div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl">
-                <FiTrendingUp className="w-6 h-6 text-indigo-600" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">Stress Trend</h2>
-            </div>
-            <div className="h-32 flex items-end justify-center gap-1 bg-gradient-to-t from-gray-50 to-transparent rounded-2xl p-4">
-              {(stressTrend || []).map((s, i) => {
-                const max = Math.max(1, ...stressTrend.map(x => x.avg || 0));
-                const h = Math.round(((s.avg || 0) / max) * 100);
-                return (
-                  <div 
-                    key={i} 
-                    className="w-3 bg-gradient-to-t from-teal-500 to-emerald-400 rounded-t-lg hover:from-teal-600 hover:to-emerald-500 transition-colors cursor-pointer shadow-sm" 
-                    style={{ height: `${h}%` }} 
-                    title={`${s.date}: ${s.avg}`} 
-                  />
-                );
-              })}
-              {(!stressTrend || stressTrend.length === 0) && (
-                <div className="text-center text-gray-500 py-8">No data available</div>
-              )}
             </div>
           </div>
         </section>
 
-        {/* Analytics Grid */}
-        <section className="grid lg:grid-cols-3 gap-6">
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <FiHeart className="w-6 h-6 text-pink-600" />
-              <h2 className="text-xl font-bold text-gray-800">Emotional Patterns</h2>
+        {/* Recent Sessions Table */}
+        <section className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+          <div className="p-8">
+            <div className="flex items-center gap-3 mb-8">
+              <FiEye className="w-8 h-8 text-teal-600" />
+              <h2 className="text-2xl font-bold text-gray-800">Recent Student Sessions</h2>
             </div>
-            <div className="space-y-3 text-sm">
-              {(emotionalPatterns || []).slice(0, 5).map(([pattern, count]) => (
-                <div key={pattern} className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl px-4 py-3 hover:from-pink-50 hover:to-pink-100 transition-all duration-200">
-                  <span className="font-medium text-gray-700">{pattern}</span>
-                  <span className="font-semibold text-gray-900">{count}</span>
-                </div>
-              ))}
-              {(!emotionalPatterns || emotionalPatterns.length === 0) && <div className="text-center text-gray-500 py-8">No data available</div>}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <FiMessageSquare className="w-6 h-6 text-blue-600" />
-              <h2 className="text-xl font-bold text-gray-800">Main Topics</h2>
-            </div>
-            <div className="space-y-3 text-sm">
-              {(mainTopics || []).slice(0, 5).map(([topic, count]) => (
-                <div key={topic} className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl px-4 py-3 hover:from-blue-50 hover:to-blue-100 transition-all duration-200">
-                  <span className="font-medium text-gray-700">{topic}</span>
-                  <span className="font-semibold text-gray-900">{count}</span>
-                </div>
-              ))}
-              {(!mainTopics || mainTopics.length === 0) && <div className="text-center text-gray-500 py-8">No data available</div>}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <FiShield className="w-6 h-6 text-green-600" />
-              <h2 className="text-xl font-bold text-gray-800">Coping Strategies</h2>
-              </div>
-            <div className="space-y-3 text-sm">
-              {(copingStrategies || []).slice(0, 5).map(([strategy, count]) => (
-                <div key={strategy} className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl px-4 py-3 hover:from-green-50 hover:to-green-100 transition-all duration-200">
-                  <span className="font-medium text-gray-700">{strategy}</span>
-                  <span className="font-semibold text-gray-900">{count}</span>
-            </div>
-          ))}
-              {(!copingStrategies || copingStrategies.length === 0) && <div className="text-center text-gray-500 py-8">No data available</div>}
+            <div className="overflow-x-auto rounded-2xl border border-gray-200/50">
+              <table className="w-full min-w-[900px] divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Session ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Start Time</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Interaction Depth</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Risk Assessment</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sessions.slice(0, 12).map((s) => {
+                    const risk = s.riskLevel.toLowerCase();
+                    const riskStyles = {
+                      crisis: 'bg-red-100 text-red-800 border-red-300',
+                      high: 'bg-orange-100 text-orange-800 border-orange-300',
+                      medium: 'bg-amber-100 text-amber-800 border-amber-300',
+                      low: 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    }[risk] || 'bg-gray-100 text-gray-800 border-gray-300';
+                    return (
+                      <tr key={s.id} className="hover:bg-gradient-to-r hover:from-gray-50 hover:to-white/50 transition-all duration-200">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 font-mono">{s.id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{s.startedAt.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{s.turns} turns</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold border capitalize ${riskStyles}`}>
+                            {risk}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Active</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <button
+                            onClick={() => console.log('Opening detailed view for session:', s.id)}
+                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-full hover:from-blue-700 active:scale-95 transition-all shadow-sm hover:shadow-md"
+                          >
+                            👁️ View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
 
-        {/* Recent Sessions */}
-        <section className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-            <FiEye className="w-6 h-6 text-teal-600" />
-            Recent Sessions
-          </h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {sessions.map(s => {
-              const flags = Array.isArray(s.riskFlags) ? s.riskFlags : [];
-              const levelFromFlags = (() => {
-                const hasCrisis = flags.some(f => (f.level || '').toString().toLowerCase() === 'crisis');
-                const hasHigh = flags.some(f => (f.level || '').toString().toLowerCase() === 'high');
-                const hasMedium = flags.some(f => (f.level || '').toString().toLowerCase() === 'medium');
-                if (hasCrisis) return 'crisis';
-                if (hasHigh) return 'high';
-                if (hasMedium) return 'medium';
-                return null;
-              })();
-              const fallbackLevel = (s.riskLevel || s.priority || s.riskAssessment?.overallRisk || '').toString().toLowerCase();
-              const fromEvents = eventRiskBySessionId[s.id];
-              const risk = levelFromFlags || fromEvents || fallbackLevel || 'low';
-              const norm = risk === 'crisis' ? 'crisis' : risk === 'high' ? 'high' : risk === 'medium' ? 'medium' : 'low';
-              const riskText = norm.toUpperCase();
-              const riskPill = norm === 'crisis' ? 'bg-red-100 text-red-700 border-red-300' :
-                norm === 'high' ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                norm === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-emerald-100 text-emerald-700 border-emerald-300';
-              const cardAccent = norm === 'crisis' ? 'border-red-300' : norm === 'high' ? 'border-orange-300' : norm === 'medium' ? 'border-amber-300' : 'border-emerald-300';
-              return (
-                <div key={s.id} className={`border ${cardAccent} rounded-2xl p-4 text-sm bg-white shadow-sm hover:shadow-md transition-shadow duration-300`}>
-                  <div className="flex justify-between items-center text-gray-500">
-                    <span className="font-mono">{s.id?.slice(-8)}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${riskPill}`}>{riskText}</span>
+        {/* Realtime Events Feed */}
+        <section className="bg-gradient-to-br from-yellow-50/95 to-orange-50/95 rounded-3xl shadow-2xl border border-yellow-200/50 p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <FiZap className="w-8 h-8 text-yellow-600 animate-pulse" />
+            <h2 className="text-2xl font-bold text-gray-800">Live Event Stream</h2>
+          </div>
+          <p className="text-gray-700 mb-6 text-center md:text-left max-w-2xl">Real-time notifications for critical insights, SOS activations, and session milestones (simulated for demo)</p>
+          <div className="space-y-4 max-h-80 overflow-y-auto pr-4 -mr-4 scrollbar-thin scrollbar-thumb-yellow-300/60 scrollbar-track-transparent scrollbar-thumb-rounded">
+            {events.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <FiClock className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg">Awaiting real-time activity...</p>
+                <p className="text-sm mt-2">Events will appear here as sessions progress.</p>
+              </div>
+            ) : (
+              events.slice(0, 10).map((ev, i) => (
+                <div
+                  key={i}
+                  className="group p-5 rounded-2xl bg-white/80 border-l-4 hover:scale-[1.02] transition-all duration-300 cursor-pointer hover:shadow-md border border-gray-200/50 backdrop-blur-sm"
+                  style={{
+                    borderLeftColor: ev.type === 'sos' ? '#EF4444' : '#F59E0B'
+                  }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 mt-1">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold capitalize
+                        ${ev.type === 'sos' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {ev.type === 'sos' ? '🚨 SOS Alert' : '💡 New Insight'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 mb-1 leading-tight">{ev.message}</p>
+                      <p className="text-sm text-gray-600 flex flex-wrap gap-4">
+                        <span>Session: <span className="font-mono font-semibold">{ev.sessionId}</span></span>
+                        <span>Risk: <span className="capitalize font-semibold text-amber-700">{ev.riskLevel || 'monitoring'}</span></span>
+                      </p>
+                    </div>
+                    <div className="text-right text-xs text-gray-500 whitespace-nowrap ml-auto">
+                      {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </div>
                   </div>
-                  <div className="mt-1 text-gray-600">{new Date(s.startedAt).toLocaleString()}</div>
-                  <div className="mt-1 font-medium text-gray-700">Turns: {s.turns?.length || 0}</div>
                 </div>
-              );
-            })}
-        </div>
-      </section>
+              ))
+            )}
+          </div>
+        </section>
 
-        {/* Realtime Events */}
-        <section className="rounded-3xl bg-white shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-            <FiZap className="w-6 h-6 text-yellow-500" />
-            Realtime Events
-          </h2>
-          <ul className="space-y-3 text-sm max-h-60 overflow-y-auto">
-          {events.slice(-10).reverse().map((ev, i) => (
-              <li key={i} className="hover:bg-yellow-50 rounded px-3 py-1 transition-colors cursor-default">
-                {ev.type === 'sos'
-              ? `🚨 SOS • Session ${String(ev.sessionId || '').slice(-8)} • ${ev.message}`
-                  : `Insight • Session ${String(ev.sessionId || '').slice(-8)} • Risk ${ev.riskLevel?.toUpperCase?.()}`}
-              </li>
-          ))}
-        </ul>
-      </section>
       </div>
     </div>
   );

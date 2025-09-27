@@ -138,7 +138,7 @@ export default function AuthPage() {
         <div className="bg-teal-500 p-6 text-center">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div className="bg-white rounded-full p-2">
-              <img src="/assets/branding/umang-logo.jpeg" alt="UMANG logo" className="rounded-xl w-16 h-16 scale-200 object-cover" />
+              <img src="/assets/branding/UMANG.png" alt="UMANG logo" className="rounded-xl w-16 h-16 scale-150 object-contain" />
             </div>
           </div>
           <p className="text-teal-100">Unified Mental Aid for Nurturing Growth</p>
