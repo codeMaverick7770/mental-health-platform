@@ -87,7 +87,7 @@ export const initSocket = (server) => {
 
         console.log(`✅ Session started: ${session.sessionId}`);
       } catch (err) {
-        console.error("❌ session:start error:", err.message);
+        console.error("session:start error:", err.message);
       }
     });
 
@@ -113,9 +113,9 @@ export const initSocket = (server) => {
           ...newMessage,
         });
 
-        console.log(`💬 Session ${_id} message from ${sender}`);
+        console.log(`Session ${_id} message from ${sender}`);
       } catch (err) {
-        console.error("❌ send_chat error:", err.message);
+        console.error("send_chat error:", err.message);
       }
     });
 
@@ -142,7 +142,7 @@ export const initSocket = (server) => {
 
         console.log(`📩 Direct chat ${senderId} ➝ ${receiverId}`);
       } catch (err) {
-        console.error("❌ chat:sendMessage error:", err.message);
+        console.error(" chat:sendMessage error:", err.message);
       }
     });
 
