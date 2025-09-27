@@ -1,4 +1,5 @@
 import Session from "../models/Session.js";
+import AdminSessionSummary from "../models/AdminSessionSummary.js";
 // import Counsellor from "../models/Counsellor.js";
 
 // Get all sessions for a counselor (only return actually booked sessions)
@@ -6,6 +7,7 @@ export const getCounselorSessions = async (req, res) => {
   try {
     const sessions = await Session.find({ booked: true })
       .populate('counsellorId', 'name specialization')
+      .populate('userId', 'name email')
       .sort({ scheduledAt: -1 });
     
     res.json({ sessions });
@@ -18,9 +20,12 @@ export const getCounselorSessions = async (req, res) => {
 // Get specific session details with messages
 export const getSessionDetails = async (req, res) => {
   try {
+
+  
     const { sessionId } = req.params;
     const session = await Session.findOne({ sessionId })
-      .populate('counsellorId', 'name specialization contactNumber');
+      .populate('counsellorId', 'name specialization contactNumber')
+      .populate('userId', 'name email');
     
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
@@ -336,5 +341,25 @@ export const getCounselorReport = async (req, res) => {
   } catch (error) {
     console.error('Error getting counselor report:', error);
     return res.status(500).json({ error: 'Failed to generate counselor report' });
+  }
+};
+
+// Backfill userId for sessions missing it using AdminSessionSummary.studentId
+export const backfillSessionUserIds = async (_req, res) => {
+  try {
+    const sessions = await Session.find({ $or: [ { userId: { $exists: false } }, { userId: null } ] });
+    let updated = 0;
+    for (const s of sessions) {
+      const summary = await AdminSessionSummary.findOne({ sessionId: s.sessionId }).lean();
+      if (summary?.studentId) {
+        s.userId = summary.studentId;
+        await s.save();
+        updated += 1;
+      }
+    }
+    return res.json({ message: 'Backfill complete', updated });
+  } catch (error) {
+    console.error('Backfill error:', error);
+    return res.status(500).json({ error: 'Failed to backfill userIds' });
   }
 };
