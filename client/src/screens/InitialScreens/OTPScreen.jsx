@@ -1,7 +1,9 @@
 import { Alert, StyleSheet, Text, TextInput, View } from 'react-native'
 import React, { useEffect, useRef, useState } from 'react'
+import axios from 'axios'
 import FormInput from '../../components/FormInput';
 import FormButton from '../../components/FormButton';
+import baseServer from '../../utils/config';
 
 const OTP_LENGTH = 6;
 
@@ -45,33 +47,34 @@ const OtpScreen = ({ navigation, route }) => {
     const otpValidate = async () => {
         const otp = OTP.join('');
 
-        Alert.alert(otp);
-        if (!email || !password) {
-            Alert.alert("All fields are mandatory.");
+        if (!email) {
+            Alert.alert("Email is required.");
             return;
         }
 
-        if (password.length < 8) {
-            Alert.alert("Password must contain alteast 8 characters.");
+        if (!counter && (!password || password.length < 8)) {
+            Alert.alert("Password must contain at least 8 characters.");
             return;
         }
 
         try {
+            let response;
             if(!counter){
-                const response = await axios.post(`${baseServer}`, {
+                // For forgot password flow
+                response = await axios.post(`${baseServer}/api/v1/auth/reset-password`, {
                     email,
                     password,
                     otp
                 });
             }
             else{
-                const response = await axios.post(`${baseServer}`, {
+                // For email verification flow
+                response = await axios.post(`${baseServer}/api/v1/auth/verify-email`, {
                     email,
                     otp
                 });
             }
             
-
             if (response.data.success) {
                 navigation.navigate('SignIn');
             }
@@ -81,11 +84,10 @@ const OtpScreen = ({ navigation, route }) => {
             }
 
         } catch (err) {
-            Alert.alert('OTP Failed!!',
+            Alert.alert('OTP Verification Failed!!',
                 err.response?.data?.message || 'Error'
             );
         }
-
     };
 
     const handleResend = () => {

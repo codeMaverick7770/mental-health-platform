@@ -1,22 +1,23 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React, { useState } from 'react'
+import axios from 'axios'
 
 import { SafeAreaView } from 'react-native-safe-area-context'
 import FormInput from '../../components/FormInput';
 import FormButton from '../../components/FormButton';
+import baseServer from '../../utils/config';
 
 const ForgotPasswordScreen = ({navigation}) => {
     const [email, setEmail] = useState();
 
     const forgotPasswordHandler = async () => {
-        navigation.navigate("OTP", {counter: 0, email});
         if (!email) {
-            Alert.alert("All fields are mandatory.");
+            Alert.alert("Email is required.");
             return;
         }
 
         try {
-            const response = await axios.post(`${baseServer}`, {
+            const response = await axios.post(`${baseServer}/api/v1/auth/forgot-password`, {
                 email,
             });
 

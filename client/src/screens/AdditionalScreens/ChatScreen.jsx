@@ -21,6 +21,8 @@ const ChatScreen = ({ route }) => {
     //         if(_id) {
     //             socket.emit("joinRoom", _id);
     //             console.log(`Joined room: ${_id}`);
+    //             socket,off('receive_chat', handleChat);
+    //             socket.on('receive_chat', handleChat);
     //         } else {
     //             // Handle case where no room ID is provided
     //             console.log("No room ID provided for chat");
@@ -31,6 +33,7 @@ const ChatScreen = ({ route }) => {
 
     //     return () => {
     //         if(socket?.connected && _id) {
+    //             socket.off('receive_chat', handleChat);
     //             socket.emit("leaveRoom", _id);
     //             console.log(`Left room: ${_id}`);
     //         }

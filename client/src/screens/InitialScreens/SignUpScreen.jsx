@@ -1,5 +1,6 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React, { useState } from 'react'
+import axios from 'axios'
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,30 +9,36 @@ import FormButton from '../../components/FormButton'
 import baseServer from '../../utils/config';
 
 const SignUpScreen = ({ navigation }) => {
+    const [name, setName] = useState();
     const [email, setEmail] = useState();
     const [password, setPassword] = useState();
     const [confirmPassword, setConfirmPassword] = useState();
 
     const signUpHandler = async () => {
-        //return navigation.navigate("MainTab");
-        if (!email || !password) {
+        if (!name || !email || !password || !confirmPassword) {
             Alert.alert("All fields are mandatory.");
             return;
         }
 
+        if (password !== confirmPassword) {
+            Alert.alert("Passwords do not match.");
+            return;
+        }
+
         if (password.length < 8) {
-            Alert.alert("Password must contain alteast 8 characters.");
+            Alert.alert("Password must contain at least 8 characters.");
             return;
         }
 
         try {
-            const response = await axios.post(`${baseServer}`, {
+            const response = await axios.post(`${baseServer}/api/v1/auth/register`, {
+                name,
                 email,
                 password,
             });
 
             if (response.data.success) {
-                navigation.navigate("OtpScreen", {
+                navigation.navigate("OTP", {
                     email,
                     counter: 1
                 });
@@ -56,7 +63,7 @@ const SignUpScreen = ({ navigation }) => {
                     iconType='Feather'
                     iconName='user'
                     iconSize={17}
-                    placeholderText={'University Name'}
+                    placeholderText={'Full Name'}
                     labelValue={name}
                     onChangeText={(name) => setName(name)}
                     autoCorrect={false}

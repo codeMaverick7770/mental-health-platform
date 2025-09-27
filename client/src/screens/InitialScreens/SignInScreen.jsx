@@ -1,10 +1,13 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React, { useState } from 'react'
+import axios from 'axios'
 
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import FormInput from '../../components/FormInput'
 import FormButton from '../../components/FormButton'
+import baseServer from '../../utils/config'
+import setToken from '../../utils/setToken'
 
 const SignInScreen = ({navigation}) => {
 
@@ -12,25 +15,25 @@ const SignInScreen = ({navigation}) => {
     const [password, setPassword] = useState();
 
     const signInHandler = async () => {
-        navigation.navigate("AppStack")
         if (!email || !password) {
             Alert.alert("All fields are mandatory.");
             return;
         }
 
         if (password.length < 8) {
-            Alert.alert("Password must contain alteast 8 characters.");
+            Alert.alert("Password must contain at least 8 characters.");
             return;
         }
 
         try {
-            const response = await axios.post(`${baseServer}`, {
+            const response = await axios.post(`${baseServer}/api/v1/auth/login`, {
                 email,
                 password,
             });
 
             if (response.data.success) {
-                
+                await setToken(response.data.accessToken);
+                navigation.navigate("AppStack");
             }
             else {
                 Alert.alert("Something Went Wrong!");

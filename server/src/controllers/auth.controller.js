@@ -28,7 +28,7 @@ const generateRefreshToken = (user) => {
 // =================== REGISTER ===================
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role="student" } = req.body;
 
     // Normalize domain
     let domain = email.split("@")[1];
