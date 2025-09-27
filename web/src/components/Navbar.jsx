@@ -16,11 +16,16 @@ export default function Navbar() {
     <header className="sticky top-0 bg-white/80 backdrop-blur border-b z-50">
       <nav className="max-w-6xl mx-auto flex items-center justify-between p-4" aria-label="Main">
         <div className="flex items-center gap-3">
-          <img src="/assets/branding/umang-logo.jpeg" alt="UMANG logo" className="h-8 w-8 rounded object-cover transform scale-400 origin-center shrink-0" />
+          <NavLink to="/" className="flex items-center gap-2" onClick={close}>
+            <img src="/assets/branding/UMANG.png" alt="UMANG logo" className="h-8 w-auto scale-500" />
+          </NavLink>
         </div>
 
         {/* Desktop menu */}
         <div className="hidden md:flex items-center gap-1">
+          <NavLink to="/" className={linkClass} onClick={close}>
+            Home
+          </NavLink>
           <NavLink to="/admin" className={linkClass} onClick={close}>
             Admin
           </NavLink>
@@ -36,7 +41,6 @@ export default function Navbar() {
           <NavLink to="/auth" className={linkClass} onClick={close}>
             Login
           </NavLink>    
-          
         </div>
 
         {/* Mobile hamburger */}
@@ -65,6 +69,9 @@ export default function Navbar() {
       {open && (
         <div id="mobile-menu" className="md:hidden border-t bg-white/95 backdrop-blur">
           <div className="max-w-6xl mx-auto p-2 flex flex-col gap-1">
+            <NavLink to="/" className={linkClass} onClick={close}>
+              Home
+            </NavLink>
             <NavLink to="/admin" className={linkClass} onClick={close}>
               Admin
             </NavLink>
@@ -76,6 +83,9 @@ export default function Navbar() {
             </NavLink>
             <NavLink to="/voice" className={linkClass} onClick={close}>
               Voice Tester
+            </NavLink>
+            <NavLink to="/auth" className={linkClass} onClick={close}>
+              Login
             </NavLink>
           </div>
         </div>

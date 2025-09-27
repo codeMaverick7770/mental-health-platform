@@ -1,10 +1,19 @@
+// Load local .env; if not found, attempt to load parent .env so we share variables with backend
 import 'dotenv/config';
+import path from 'path';
+import fs from 'fs';
+if (!process.env.MONGO_URI) {
+  const parentEnv = path.resolve(process.cwd(), '..', '.env');
+  if (fs.existsSync(parentEnv)) {
+    import('dotenv').then(dotenv => dotenv.config({ path: parentEnv }));
+  }
+}
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 
 // Import controllers
-import { startSession, postTurn, endSession } from './src/controllers/sessionController.js';
+import { startSession, postTurn, endSession, bookSession, getCounselorSessions, listBookedSessions } from './src/controllers/sessionController.js';
 import { dashboard, listSessions, getSession, analytics, alerts } from './src/controllers/adminController.js';
 import { getCounselorReport, listCounselorReports } from './src/controllers/counselorController.js';
 import { speak as ttsSpeak } from './src/controllers/ttsController.js';
@@ -84,6 +93,7 @@ app.post('/api/admin/seed-demo', async (req, res) => {
 app.post('/api/session/start', startSession);
 app.post('/api/session/turn', postTurn);
 app.post('/api/session/end', endSession);
+app.post('/api/session/book', bookSession);
 
 // Admin Dashboard API Endpoints
 app.get('/api/admin/dashboard', dashboard);
@@ -117,30 +127,41 @@ function computeStatus(sess){
   return sess.status || 'scheduled';
 }
 
-// List sessions (basic view for counselor)
-app.get('/api/counselor/sessions', (req, res) => {
-  try {
-    const list = Array.from(sessions.entries())
-      .sort((a,b) => new Date(b[1].startedAt) - new Date(a[1].startedAt))
-      .map(([id, s]) => ({
-        sessionId: id,
-        userName: s.meta?.userName || 'Anonymous',
-        scheduledAt: s.startedAt,
-        duration: s.endedAt ? Math.max(1, Math.round((new Date(s.endedAt)-new Date(s.startedAt))/60000)) : undefined,
-        status: computeStatus(s)
-      }));
-    res.json({ sessions: list });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to list sessions' });
-  }
-});
+// List sessions for a counselor (booked/scheduled)
+app.get('/api/counselor/sessions', listBookedSessions);
+app.get('/api/counselor/sessions/:counselorId', getCounselorSessions);
 
-// Get a specific session (with messages/notes)
-app.get('/api/counselor/session/:sessionId', (req, res) => {
+// Get a specific session (with messages/notes) with DB fallback
+app.get('/api/counselor/session/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const s = sessions.get(sessionId);
-    if (!s) return res.status(404).json({ error: 'Session not found' });
+    let s = sessions.get(sessionId);
+    if (!s) {
+      try {
+        const { connectToDb } = await import('./src/utils.js');
+        const db = await connectToDb();
+        const doc = await db.collection('sessions').findOne({ sessionId });
+        if (!doc) return res.status(404).json({ error: 'Session not found' });
+        // Map persisted shape to expected response
+        const messages = (doc.messages || []).map((m, idx) => ({
+          id: idx + 1,
+          message: m.message,
+          sender: m.sender,
+          timestamp: m.timestamp
+        }));
+        return res.json({
+          sessionId,
+          userName: doc.userName || 'Anonymous',
+          status: doc.status || (doc.endedAt ? 'completed' : 'scheduled'),
+          startedAt: doc.startedAt,
+          endedAt: doc.endedAt,
+          messages,
+          notes: doc.notes || ''
+        });
+      } catch (err) {
+        return res.status(500).json({ error: 'Failed to load session' });
+      }
+    }
     const messages = (s.turns || []).map((t, idx) => ({
       id: idx + 1,
       message: t.text,
@@ -258,6 +279,9 @@ app.post('/api/book/admin', async (req, res) => {
     
     const data = await resp.json();
     console.log('✅ Booking successful:', data);
+
+    // The main backend is the source of truth; no need to sync status here.
+
     return res.status(200).json(data);
   } catch (e) {
     console.error('❌ Booking proxy error:', e);

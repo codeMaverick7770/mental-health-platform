@@ -15,8 +15,10 @@ const sessionSchema = new mongoose.Schema({
   // Mirrors booking state
   booked: { type: Boolean, default: false },
   userId: {
-    type: String,
-    required: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true
   },
   userName: {
     type: String,
@@ -24,10 +26,15 @@ const sessionSchema = new mongoose.Schema({
   },
   counsellorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Counsellor',
+    ref: 'AdminCounselor',
     required: false
   },
   counsellorName: {
+    type: String,
+    required: false
+  },
+  // License ID from AdminCounselor
+  counsellorLicenseId: {
     type: String,
     required: false
   },
@@ -56,7 +63,7 @@ const sessionSchema = new mongoose.Schema({
     message: String,
     sender: {
       type: String,
-      enum: ['user', 'counselor', 'system']
+      enum: ['user', 'counselor', 'system', 'assistant']
     },
     timestamp: {
       type: Date,

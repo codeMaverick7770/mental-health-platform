@@ -1,12 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import io from 'socket.io-client';
 
 export default function CounselorSessionPage() {
+  const socket = useMemo(() => io(), []);
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [sessionNotes, setSessionNotes] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Listen for live messages for the active session
+  useEffect(() => {
+    const handler = (msg) => {
+      if (!activeSession) return;
+      if (msg.sessionId !== activeSession.sessionId) return;
+      setMessages((prev) => [...prev, msg]);
+    };
+    socket.on('session:newMessage', handler);
+    return () => {
+      socket.off('session:newMessage', handler);
+    };
+  }, [socket, activeSession]);
 
   // Fetch counselor's assigned sessions
   useEffect(() => {
@@ -19,6 +34,7 @@ export default function CounselorSessionPage() {
       const response = await fetch('/api/counselor/sessions');
       const data = await response.json();
       setSessions(data.sessions || []);
+      console.log(data.sessions);
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
     } finally {
@@ -32,8 +48,25 @@ export default function CounselorSessionPage() {
       const response = await fetch(`/api/counselor/session/${sessionId}`);
       const data = await response.json();
       setActiveSession(data);
-      setMessages(data.messages || []);
+      
+      // Deduplicate messages based on content, sender, and timestamp
+      const uniqueMessages = [];
+      const seen = new Set();
+      
+      (data.messages || []).forEach(msg => {
+        const key = `${msg.message}-${msg.sender}-${new Date(msg.timestamp).getTime()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueMessages.push(msg);
+        }
+      });
+      
+      setMessages(uniqueMessages);
       setSessionNotes(data.notes || '');
+      // Auto-join the session room if already active
+      if (data?.status === 'active') {
+        socket.emit('joinSession', { sessionId: data.sessionId });
+      }
     } catch (error) {
       console.error('Failed to load session:', error);
     }
@@ -42,31 +75,18 @@ export default function CounselorSessionPage() {
   // Send message to user
   async function sendMessage() {
     if (!newMessage.trim() || !activeSession) return;
-
-    try {
-      const response = await fetch(`/api/counselor/session/${activeSession.sessionId}/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: newMessage,
-          sender: 'counselor',
-          timestamp: new Date().toISOString()
-        })
-      });
-
-      if (response.ok) {
-        const newMsg = {
-          id: Date.now(),
-          message: newMessage,
-          sender: 'counselor',
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, newMsg]);
-        setNewMessage('');
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
+    // Ensure we're in the session room (defensive)
+    socket.emit('joinSession', { sessionId: activeSession.sessionId });
+    // Send via session chat
+    socket.emit('send_chat', { _id: activeSession.sessionId, text: newMessage, sender: 'counselor' });
+    // Optimistically append to local UI
+    setMessages(prev => [...prev, {
+      sessionId: activeSession.sessionId,
+      message: newMessage,
+      sender: 'counselor',
+      timestamp: new Date().toISOString()
+    }]);
+    setNewMessage('');
   }
 
   // Save session notes
@@ -98,7 +118,16 @@ export default function CounselorSessionPage() {
       
       setActiveSession(prev => ({ ...prev, status }));
       fetchSessions(); // Refresh sessions list
-      alert(`Session marked as ${status}`);
+      if (status === 'active') {
+        // Notify user via Socket.IO and join the session room on counselor side
+
+        // console.log(activeSession.sessionId);
+        socket.emit('joinRoom', { _id: activeSession.sessionId });
+        socket.emit('session:start', { _id: activeSession.sessionId });
+        alert(`Session started. Notification sent for sessionId: ${activeSession.sessionId}. Ask the user to join this session.`);
+      } else {
+        alert(`Session marked as ${status}`);
+      }
     } catch (error) {
       console.error('Failed to update status:', error);
     }
@@ -153,6 +182,11 @@ export default function CounselorSessionPage() {
                         <div>User: {session.userName || 'Anonymous'}</div>
                         <div>Scheduled: {new Date(session.scheduledAt).toLocaleString()}</div>
                         {session.duration && <div>Duration: {session.duration} min</div>}
+                        <div className="text-xs text-gray-500 break-all mt-1">Session ID: {session.sessionId}</div>
+                        <div className="text-xs text-gray-500 break-all">User ID: {session.userId ? (session.userId._id || String(session.userId)) : ''}</div>
+                        {session.userId && typeof session.userId === 'object' && (
+                          <div className="text-xs text-gray-500 break-all">User Name: {session.userId.name || '—'}{session.userId.email ? ` • ${session.userId.email}` : ''}</div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -207,9 +241,9 @@ export default function CounselorSessionPage() {
                       No messages yet. Start the conversation!
                     </div>
                   ) : (
-                    messages.map(msg => (
+                    messages.map((msg, index) => (
                       <div
-                        key={msg.id}
+                        key={`${msg.timestamp}-${index}-${msg.sender}`}
                         className={`flex ${msg.sender === 'counselor' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
