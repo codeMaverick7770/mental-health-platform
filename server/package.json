@@ -1,15 +1,17 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Mental Health Platform Server",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
+    "start": "node index.js",
     "seed": "node seedCounsellors.js"
   },
-  "keywords": [],
+  "keywords": ["mental-health", "counseling", "express", "nodejs"],
   "author": "",
   "license": "ISC",
   "dependencies": {

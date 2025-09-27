@@ -2,7 +2,7 @@ import Session from "../models/Session.js";
 import AdminSessionSummary from "../models/AdminSessionSummary.js";
 import AdminCounselor from "../models/AdminCounselor.js";
 
-// POST /api/book/admin – creates a session pending counselor assignment
+// POST /api/book/admin – creates or books a session
 export const bookByAdmin = async (req, res) => {
     try {
       console.log("hello");
@@ -37,7 +37,7 @@ export const bookByAdmin = async (req, res) => {
         userId: resolvedUserId,
         userName: `User ${String(sessionId).slice(-8)}`,
         status: "scheduled",
-        booked: true,
+        booked: false,
         priority: (priority || report?.priority || 'medium').toString().toLowerCase(),
         riskAssessment: report?.riskAssessment || undefined,
         immediateActions: Array.isArray(report?.immediateActions) ? report.immediateActions : undefined,
@@ -52,7 +52,7 @@ export const bookByAdmin = async (req, res) => {
 
 
   
-      // Prevent duplicate booking for same sessionId
+      // Check if session already exists
       const existing = await Session.findOne({ sessionId });
       if (existing) {
         return res.status(400).json({

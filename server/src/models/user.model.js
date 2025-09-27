@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema(
     college: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AdminCollege",
+      required: true,
     },
 
     favorites: [

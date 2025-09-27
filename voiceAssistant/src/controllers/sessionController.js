@@ -2,6 +2,7 @@ import { sessions, adminReporting, pushRealtime } from '../state.js';
 import { createResponse, generateAdminReport } from '../dialogue.js';
 import { detectRisk } from '../safety.js';
 import { generateReport } from '../report.js';
+import { connectToDb } from '../utils.js';
 
 export function startSession(req, res) {
   const { locale = 'en' } = req.body || {};
@@ -116,12 +117,123 @@ export async function endSession(req, res) {
 
   try {
     const userReport = generateReport(session);
-    const adminReport = await generateAdminReport(sessionId);
+    let adminReport;
+    try {
+      adminReport = await generateAdminReport(sessionId);
+    } catch (e) {
+      // Fallback minimal report to ensure persistence even if LLM/insights fail
+      const durationMin = Math.max(1, Math.round((new Date(session.endedAt) - new Date(session.startedAt)) / 60000));
+      adminReport = {
+        priority: 'medium',
+        riskAssessment: { overallRisk: 'low', confidence: 0.5 },
+        immediateActions: [],
+        bookingNeeded: false,
+        studentInfo: {
+          engagementLevel: 'medium',
+          messageCount: Array.isArray(session.turns) ? session.turns.length : 0,
+          sessionDuration: durationMin
+        }
+      };
+    }
+
+    // Prepare data for persistence
+    const persistenceData = {
+      sessionId: session.id,
+      userId: session.meta.userId || 'anonymous',
+      userName: session.meta.userName || 'Anonymous',
+      status: 'completed',
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      duration: Math.round((new Date(session.endedAt) - new Date(session.startedAt)) / 60000),
+      messages: session.turns.map(turn => ({ message: turn.text, sender: turn.role, timestamp: turn.timestamp })),
+      notes: '', // Counselor can add notes later
+      priority: adminReport.priority || 'medium',
+      riskAssessment: adminReport.riskAssessment,
+      immediateActions: adminReport.immediateActions,
+      bookingNeeded: adminReport.bookingNeeded,
+      studentInfo: adminReport.studentInfo
+    };
+
+    // Persist to main backend (MongoDB)
+    try {
+      const db = await connectToDb();
+      await db.collection('sessions').insertOne(persistenceData);
+    } catch (e) {
+      console.error('Failed to persist session to main backend', e);
+      // Decide if you should fail the request or just log the error
+    }
+
+    // Clean up in-memory session
+    sessions.delete(sessionId);
+
     res.json({ report: userReport, adminReport });
   } catch (error) {
     console.error('Error generating reports:', error);
-    res.status(500).json({ error: 'Failed to generate reports', details: error.message });
+        res.status(500).json({ error: 'Failed to generate reports', details: error.message });
+  }
+}
+
+export async function bookSession(req, res) {
+  const { sessionId, counselorId } = req.body;
+  if (!sessionId || !counselorId) {
+    return res.status(400).json({ error: 'sessionId and counselorId are required' });
+  }
+
+  try {
+    const db = await connectToDb();
+    const result = await db.collection('sessions').updateOne(
+      { sessionId: sessionId },
+      { $set: { status: 'booked', counselorId: counselorId } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json({ success: true, message: 'Session booked successfully' });
+  } catch (error) {
+    console.error('Error booking session:', error);
+    res.status(500).json({ error: 'Failed to book session', details: error.message });
+  }
+}
+
+export async function getCounselorSessions(req, res) {
+  const { counselorId } = req.params;
+  if (!counselorId) {
+    return res.status(400).json({ error: 'counselorId is required' });
+  }
+
+  try {
+    const db = await connectToDb();
+    const sessions = await db.collection('sessions').find({ counselorId: counselorId, status: 'booked' }).toArray();
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Error fetching counselor sessions:', error);
+    res.status(500).json({ error: 'Failed to fetch sessions', details: error.message });
   }
 }
 
 
+
+// List booked/scheduled sessions without counselor filter (used by My Sessions page)
+export async function listBookedSessions(req, res) {
+  try {
+    const db = await connectToDb();
+    const docs = await db.collection('sessions')
+      .find({ status: { $in: ['booked', 'scheduled'] } })
+      .sort({ startedAt: -1 })
+      .limit(100)
+      .toArray();
+    const sessions = (docs || []).map(s => ({
+      sessionId: s.sessionId || s.id,
+      userName: s.userName || 'Anonymous',
+      scheduledAt: s.startedAt,
+      duration: s.duration,
+      status: s.status || (s.endedAt ? 'completed' : 'scheduled')
+    }));
+    return res.json({ sessions });
+  } catch (error) {
+    console.error('Error listing booked sessions:', error);
+    return res.status(500).json({ error: 'Failed to list booked sessions' });
+  }
+}
