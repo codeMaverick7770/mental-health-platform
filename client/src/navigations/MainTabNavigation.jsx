@@ -32,7 +32,7 @@ const MainTabNavigation = ({navigation}) => {
                 headerShown: false,
             })}>
                 <Tab.Screen name="Home" component={HomeScreen} />
-                <Tab.Screen name="Therapy" component={TherapyScreen} />
+                {/* <Tab.Screen name="Therapy" component={TherapyScreen} /> */}
                 <Tab.Screen name="Community" component={CommunityScreen} />
                 <Tab.Screen name="Profile" component={ProfileScreen} />
             </Tab.Navigator>
