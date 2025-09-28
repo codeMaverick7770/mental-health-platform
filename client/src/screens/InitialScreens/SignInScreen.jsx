@@ -11,7 +11,9 @@ const SignInScreen = ({navigation}) => {
     const [email, setEmail] = useState();
     const [password, setPassword] = useState();
 
-    const signInHandler = () => {};
+    const signInHandler = () => {
+        navigation.navigate("AppStack")
+    };
 
     return (
         <SafeAreaView style={styles.Container}>

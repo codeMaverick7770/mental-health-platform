@@ -8,7 +8,9 @@ import FormButton from '../../components/FormButton';
 const ForgotPasswordScreen = ({navigation}) => {
     const [email, setEmail] = useState();
 
-    const forgotPasswordHandler = () => {};
+    const forgotPasswordHandler = () => {
+        navigation.navigate("OTP", {counter: 0, email});
+    };
 
     return (
         <SafeAreaView style={styles.Container}>

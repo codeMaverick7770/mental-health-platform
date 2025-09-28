@@ -5,14 +5,19 @@ import CommunityList from '../../lists/CommunityList'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 const CommunityScreen = () => {
-  return (
-    <SafeAreaView style={styles.main}>
-        <View style={styles.container}>
-            <Text style={styles.header} >Community</Text>
-            <CommunityList />
-        </View>
-    </SafeAreaView>
-  )
+    const ListHeader= () => {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.header} >Community</Text>
+
+            </View>
+        )
+    }
+    return (
+        <SafeAreaView style={styles.main}>
+            <CommunityList ListHeader={ListHeader}/>
+        </SafeAreaView>
+    )
 }
 
 export default CommunityScreen
@@ -22,7 +27,8 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#034b3ed5",
         paddingHorizontal: 0,
-        paddingTop: 20,
+        //paddingTop: 20,
+        paddingBottom: 60,
     },
     container: {
         flex: 1,

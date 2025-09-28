@@ -2,17 +2,52 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import Icon from "react-native-vector-icons/MaterialIcons";
+
 import HomeList from '../../lists/HomeList'
 
-const HomeScreen = () => {
+const HomeScreen = ({navigation}) => {
     const [name, setName] = useState('Peter')
+
+    const ListHeader = () => {
+        return (
+            <>
+            <View style={styles.navBar} >
+                <Text style={styles.navBarLeft} >Welcome, {name}</Text>
+                <Text style={styles.navBarRight} >Logo</Text>
+            </View>
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.cardRow} activeOpacity={0.5}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.cardTitle}>How are you feeling today?</Text>
+                    </View>
+                </TouchableOpacity>
+                <Text style={styles.h1}>For You</Text>
+
+                <TouchableOpacity style={styles.cardRow} activeOpacity={0.9} onPress={() => navigation.navigate("AIScreen")}>
+                    <View>
+                        <Icon name="mic" size={40} color="white" style={{ marginRight: 12 }} />
+                    </View>
+                    <View>
+                        <Text style={styles.cardTitle}>AI Counselor</Text>
+                        <Text style={styles.cardSub}>Start a conversation</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.cardRow} activeOpacity={0.9}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.cardTitle}>Continue journal entry</Text>
+                        <Text style={styles.cardSub}>Lorem ipsum dolor sit amet…</Text>
+                    </View>
+                    <Icon name="chevron-right" size={20} color="grey" />
+                </TouchableOpacity>
+            </View>
+            </>
+        )
+    }
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header} >
-                <Text style={styles.headerLeft} >Welcome, {name}</Text>
-                <Text style={styles.headerRight} >Logo</Text>
-            </View>
-            <HomeList />
+            <HomeList ListHeader={ListHeader}/>
         </SafeAreaView>
     )
 }
@@ -23,29 +58,56 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#034b3ed5",
+        paddingBottom: 40,
     },
-    header: {
+    navBar: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         paddingHorizontal: 20,
         paddingVertical: 15,
-        backgroundColor: "#FFFFFF",
-        borderBottomColor: "#E0E0E0",
-        elevation: 2,
+        backgroundColor: "#303434c7",
+        elevation: 4,
         shadowColor: "#000",
         shadowOpacity: 0.05,
         shadowOffset: { width: 0, height: 2 },
         shadowRadius: 4,
     },
-    headerLeft: {
+    navBarLeft: {
         fontSize: 22,
         fontWeight: "700",
-        color: "#333333",
+        color: "#fff",
     },
-    headerRight: {
+    navBarRight: {
         fontSize: 20,
         fontWeight: "600",
         color: "#4CAF50",
     },
+    header: { padding: 16 },
+    h1: {
+        fontSize: 24,
+        fontWeight: "600",
+        marginBottom: 12,
+        color: "#fff",
+    },
+    cardRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: 'space-around',
+        backgroundColor: "#303434c7",
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 12,
+    },
+    IconWrapper: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.15)', // subtle fade
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    cardTitle: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    cardSub: { color: "#fff", marginTop: 2 },
 })
